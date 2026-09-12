@@ -24,8 +24,12 @@ from services.plant_care_service import get_plant_care_with_fallback
 # Load environment configuration
 load_dotenv(override=True)
 
-# Initialize Database Schema
-Base.metadata.create_all(bind=engine)
+# Initialize Database Schema safely
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as db_init_err:
+    print("Database initial sync note (will retry on query):", db_init_err)
+
 
 # Create FastAPI app
 app = FastAPI(

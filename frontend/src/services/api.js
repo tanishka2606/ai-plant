@@ -1,7 +1,9 @@
 // Centralized API Service for PlantAI
 // Uses VITE_API_URL loaded from environment, defaulting to http://127.0.0.1:8000
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+const isDev = import.meta.env.DEV;
+export const API_BASE_URL = import.meta.env.VITE_API_URL || (isDev ? "http://127.0.0.1:8000" : "");
+
 
 /**
  * Upload an image to identify the plant species.

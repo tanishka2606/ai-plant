@@ -1,11 +1,16 @@
 {
   "buildCommand": "cd frontend && npm install && npm run build",
   "outputDirectory": "frontend/dist",
-  "framework": "vite",
   "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
+    { "source": "/upload-image", "destination": "/api/index.py" },
+    { "source": "/seed-identify", "destination": "/api/index.py" },
+    { "source": "/identify-seed", "destination": "/api/index.py" },
+    { "source": "/health-check", "destination": "/api/index.py" },
+    { "source": "/plant-care/(.*)", "destination": "/api/index.py" },
+    { "source": "/assistant", "destination": "/api/index.py" },
+    { "source": "/login", "destination": "/api/index.py" },
+    { "source": "/register", "destination": "/api/index.py" },
+    { "source": "/api/(.*)", "destination": "/api/index.py" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

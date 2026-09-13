@@ -1,6 +1,13 @@
 import os
+import sys
 import bcrypt
 import urllib.parse
+
+# Ensure backend directory is in sys.path for serverless environments
+backend_dir = os.path.dirname(os.path.abspath(__file__))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
+
 from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse

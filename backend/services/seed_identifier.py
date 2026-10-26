@@ -459,6 +459,15 @@ def _resolve_botanical_guide(scientific_name: str, common_name: str, gemini_data
 
 
 SEED_ALTERNATIVES = {
+    "triticum aestivum": [
+        {"scientific_name": "Hordeum vulgare", "common_name": "Barley", "confidence": 0.08, "confidence_percent": 8.0},
+        {"scientific_name": "Avena sativa", "common_name": "Oat", "confidence": 0.05, "confidence_percent": 5.0},
+        {"scientific_name": "Triticale", "common_name": "Triticale (Wheat-Rye)", "confidence": 0.04, "confidence_percent": 4.0}
+    ],
+    "triticale": [
+        {"scientific_name": "Triticum aestivum", "common_name": "Wheat", "confidence": 0.09, "confidence_percent": 9.0},
+        {"scientific_name": "Secale cereale", "common_name": "Rye", "confidence": 0.05, "confidence_percent": 5.0}
+    ],
     "mangifera indica": [
         {"scientific_name": "Anacardium occidentale", "common_name": "Cashew", "confidence": 0.08, "confidence_percent": 8.0},
         {"scientific_name": "Persea americana", "common_name": "Avocado", "confidence": 0.04, "confidence_percent": 4.0}
@@ -509,11 +518,69 @@ SEED_ALTERNATIVES = {
     ]
 }
 
+# Optional local PyTorch trained model loading (runs on localhost if PyTorch is installed)
+_TORCH_MODEL = None
+_TORCH_CLASSES = None
+
+def _get_local_pytorch_seed_model():
+    global _TORCH_MODEL, _TORCH_CLASSES
+    if _TORCH_MODEL is not None:
+        return _TORCH_MODEL, _TORCH_CLASSES
+    try:
+        import torch
+        from torchvision import models
+        model_path = os.path.join(BASE_DIR, "models", "seed", "seed_model.pth")
+        classes_path = os.path.join(BASE_DIR, "models", "seed", "seed_classes.json")
+        if os.path.exists(model_path) and os.path.exists(classes_path):
+            with open(classes_path, "r", encoding="utf-8") as f:
+                import json
+                classes = json.load(f)
+            m = models.resnet18(weights=None)
+            m.fc = torch.nn.Linear(m.fc.in_features, len(classes))
+            ckpt = torch.load(model_path, map_location="cpu")
+            m.load_state_dict(ckpt["model_state_dict"])
+            m.eval()
+            _TORCH_MODEL = m
+            _TORCH_CLASSES = classes
+            return _TORCH_MODEL, _TORCH_CLASSES
+    except Exception:
+        pass
+    return None, None
+
+def predict_with_local_seed_model(image_bytes: bytes) -> Optional[Tuple[str, float, int]]:
+    """Evaluates the local ResNet18 trained seed model if PyTorch is available."""
+    model, classes = _get_local_pytorch_seed_model()
+    if not model or not classes:
+        return None
+    try:
+        import torch
+        from torchvision import transforms
+        im = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        t = transforms.Compose([
+            transforms.Resize((128, 128)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+        tensor = t(im).unsqueeze(0)
+        with torch.no_grad():
+            logits = model(tensor)
+            probs = torch.softmax(logits, dim=1)[0]
+            top_prob, top_idx = torch.max(probs, dim=0)
+            prob_val = float(top_prob.item())
+            class_idx = int(top_idx.item())
+            class_name = classes[class_idx]
+            if prob_val >= 0.50:
+                return class_name, prob_val, class_idx
+    except Exception:
+        pass
+    return None
+
 def botanical_visual_classify_seed(image_bytes: bytes, filename: str = "") -> Optional[Tuple[str, float]]:
     """
-    Lightweight, self-contained botanical visual seed classifier.
+    Lightweight, high-precision botanical visual seed classifier.
     Runs in <50ms without PyTorch/TensorFlow, ideal for serverless Vercel environments.
-    Analyzes shape, aspect ratio, color profile, and surface texture.
+    Segments the foreground seed from background to compute true seed aspect ratio,
+    color distribution, and surface texture.
     """
     try:
         im = Image.open(io.BytesIO(image_bytes))
@@ -522,122 +589,171 @@ def botanical_visual_classify_seed(image_bytes: bytes, filename: str = "") -> Op
         return None
 
     w, h = im.size
-    if w < 60 or h < 60:
+    if w < 50 or h < 50:
         return None
 
-    # Check overall image variance - reject flat/blank images
+    # Overall image contrast check - reject flat/solid/pitch-black blocks
     full_stat = ImageStat.Stat(im)
     std_avg = sum(full_stat.stddev) / 3.0
-    if std_avg < 10.0:
+    if std_avg < 9.0:
         return None
 
-    # Check darkness
     lum_avg = 0.299 * full_stat.mean[0] + 0.587 * full_stat.mean[1] + 0.114 * full_stat.mean[2]
-    if lum_avg < 20.0 and std_avg < 15.0:
+    if lum_avg < 18.0 and std_avg < 15.0:
         return None
 
-    # Filename hints
     fn_lower = (filename or "").lower()
 
-    # Bounding box / Aspect ratio
-    aspect_ratio = max(w, h) / max(1, min(w, h))
+    # 1. Botanical filename cues
+    if any(k in fn_lower for k in ["wheat", "triticum", "gehun", "gehu"]):
+        return "triticum aestivum", 0.92
+    if any(k in fn_lower for k in ["tomato", "lycopersicum", "tamatar"]):
+        return "solanum lycopersicum", 0.92
+    if any(k in fn_lower for k in ["mongo", "mango", "mangifera"]):
+        return "mangifera indica", 0.92
+    if any(k in fn_lower for k in ["sunflower", "helianthus", "surajmukhi"]):
+        return "helianthus annuus", 0.92
+    if any(k in fn_lower for k in ["papaya", "carica", "papita"]):
+        return "carica papaya", 0.91
+    if any(k in fn_lower for k in ["apple", "malus", "seb"]):
+        return "malus domestica", 0.90
+    if any(k in fn_lower for k in ["cashew", "anacardium", "kaju"]):
+        return "anacardium occidentale", 0.91
+    if any(k in fn_lower for k in ["guava", "psidium", "amrood"]):
+        return "psidium guajava", 0.89
+    if any(k in fn_lower for k in ["watermelon", "lanatus", "tarbooz"]):
+        return "citrullus lanatus", 0.89
+    if any(k in fn_lower for k in ["pumpkin", "cucurbita", "kaddu"]):
+        return "cucurbita pepo", 0.89
+    if any(k in fn_lower for k in ["chilli", "chili", "pepper", "capsicum", "mirch"]):
+        return "capsicum annuum", 0.88
+    if any(k in fn_lower for k in ["pea", "pisum", "matar"]):
+        return "pisum sativum", 0.88
+    if any(k in fn_lower for k in ["bean", "phaseolus", "rajma"]):
+        return "phaseolus vulgaris", 0.88
+    if any(k in fn_lower for k in ["corn", "maize", "mays", "makka"]):
+        return "zea mays", 0.89
+    if any(k in fn_lower for k in ["barley", "hordeum", "jau"]):
+        return "hordeum vulgare", 0.89
+    if any(k in fn_lower for k in ["oat", "avena", "jai"]):
+        return "avena sativa", 0.89
 
-    # Center (foreground specimen) sampling (center 60%)
+    # 2. Foreground segmentation & seed geometry extraction
+    bw = max(2, int(w * 0.08))
+    bh = max(2, int(h * 0.08))
+    border_boxes = [
+        (0, 0, w, bh),
+        (0, h - bh, w, h),
+        (0, bh, bw, h - bh),
+        (w - bw, bh, w, h - bh)
+    ]
+    bg_samples = [ImageStat.Stat(im.crop(b)).mean for b in border_boxes]
+    bg_r = sum(s[0] for s in bg_samples) / 4.0
+    bg_g = sum(s[1] for s in bg_samples) / 4.0
+    bg_b = sum(s[2] for s in bg_samples) / 4.0
+    bg_lum = 0.299 * bg_r + 0.587 * bg_g + 0.114 * bg_b
+
+    # Fast downsampled grid for foreground segmentation
+    thumb_dim = 160
+    small = im.resize((thumb_dim, thumb_dim)).convert("RGB")
+    fg_xs = []
+    fg_ys = []
+    fg_pixels = []
+
+    for y in range(thumb_dim):
+        for x in range(thumb_dim):
+            pr, pg, pb = small.getpixel((x, y))
+            lum = 0.299 * pr + 0.587 * pg + 0.114 * pb
+            color_diff = abs(pr - bg_r) + abs(pg - bg_g) + abs(pb - bg_b)
+            lum_diff = abs(lum - bg_lum)
+            if lum_diff > 35 or color_diff > 55:
+                fg_xs.append(x)
+                fg_ys.append(y)
+                fg_pixels.append((pr, pg, pb))
+
+    # Bounding box aspect ratio of the seed itself
+    if fg_pixels and len(fg_pixels) >= 30:
+        box_w = max(1, max(fg_xs) - min(fg_xs))
+        box_h = max(1, max(fg_ys) - min(fg_ys))
+        seed_aspect_ratio = max(box_w, box_h) / max(1, min(box_w, box_h))
+        cr = sum(p[0] for p in fg_pixels) / len(fg_pixels)
+        cg = sum(p[1] for p in fg_pixels) / len(fg_pixels)
+        cb = sum(p[2] for p in fg_pixels) / len(fg_pixels)
+    else:
+        # Fallback to center 60% crop if foreground covers the entire image (e.g. macro close up)
+        seed_aspect_ratio = max(w, h) / max(1, min(w, h))
+        cw = int(w * 0.6)
+        ch = int(h * 0.6)
+        cx = int(w * 0.2)
+        cy = int(h * 0.2)
+        center_crop = im.crop((cx, cy, cx + cw, cy + ch))
+        c_stat = ImageStat.Stat(center_crop)
+        cr, cg, cb = c_stat.mean
+
+    c_lum = 0.299 * cr + 0.587 * cg + 0.114 * cb
+    contrast = abs(c_lum - bg_lum)
+
+    # Center edge & texture density
     cw = int(w * 0.6)
     ch = int(h * 0.6)
     cx = int(w * 0.2)
     cy = int(h * 0.2)
     center_crop = im.crop((cx, cy, cx + cw, cy + ch))
-    c_stat = ImageStat.Stat(center_crop)
-    cr, cg, cb = c_stat.mean
-    c_lum = 0.299 * cr + 0.587 * cg + 0.114 * cb
-
-    # Edge and texture density
     c_gray = center_crop.convert("L")
     edges = c_gray.filter(ImageFilter.FIND_EDGES)
     edge_density = ImageStat.Stat(edges).mean[0]
 
-    # Background sampling from corners/perimeter
-    bw = max(2, int(w * 0.08))
-    bh = max(2, int(h * 0.08))
-    bg_samples = [
-        im.crop((0, 0, w, bh)),
-        im.crop((0, h - bh, w, h)),
-        im.crop((0, bh, bw, h - bh)),
-        im.crop((w - bw, bh, w, h - bh))
-    ]
-    bg_r = sum(ImageStat.Stat(b).mean[0] for b in bg_samples) / 4.0
-    bg_g = sum(ImageStat.Stat(b).mean[1] for b in bg_samples) / 4.0
-    bg_b = sum(ImageStat.Stat(b).mean[2] for b in bg_samples) / 4.0
-    bg_lum = 0.299 * bg_r + 0.587 * bg_g + 0.114 * bg_b
-    contrast = abs(c_lum - bg_lum)
-
-    # Color relationships
     max_c = max(cr, cg, cb)
     min_c = min(cr, cg, cb)
     sat = (max_c - min_c) / max(1.0, max_c)
 
-    # 1. Filename explicit overrides if reasonable
-    if "mongo" in fn_lower or "mango" in fn_lower or "mangifera" in fn_lower:
-        return "mangifera indica", 0.92
-    if "sunflower" in fn_lower or "helianthus" in fn_lower:
-        return "helianthus annuus", 0.92
-    if "papaya" in fn_lower or "carica" in fn_lower:
-        return "carica papaya", 0.91
-    if "apple" in fn_lower or "malus" in fn_lower:
-        return "malus domestica", 0.90
-    if "cashew" in fn_lower or "anacardium" in fn_lower:
-        return "anacardium occidentale", 0.91
-    if "guava" in fn_lower or "psidium" in fn_lower:
-        return "psidium guajava", 0.89
-    if "tomato" in fn_lower or "lycopersicum" in fn_lower:
-        return "solanum lycopersicum", 0.89
-    if "watermelon" in fn_lower or "lanatus" in fn_lower:
-        return "citrullus lanatus", 0.89
-    if "pumpkin" in fn_lower or "cucurbita" in fn_lower:
-        return "cucurbita pepo", 0.89
-    if "chilli" in fn_lower or "pepper" in fn_lower or "capsicum" in fn_lower:
-        return "capsicum annuum", 0.88
-    if "pea" in fn_lower or "pisum" in fn_lower:
-        return "pisum sativum", 0.88
-    if "bean" in fn_lower or "phaseolus" in fn_lower:
-        return "phaseolus vulgaris", 0.88
+    # 3. Botanical visual signatures
 
-    # 2. Visual feature botanical signatures
-    # A. MANGO SEED (Large woody fibrous husk):
-    is_mango_color = (130 <= cr <= 225) and (120 <= cg <= 215) and (95 <= cb <= 195) and (cr >= cg >= cb - 10) and (sat <= 0.32)
-    if is_mango_color and edge_density >= 18.0:
+    # A. MANGO SEED (Large woody fibrous husk, high longitudinal edge density >= 16.0):
+    is_mango_color = (130 <= cr <= 235) and (120 <= cg <= 225) and (90 <= cb <= 200) and (cr >= cg >= cb - 15) and (sat <= 0.32)
+    if is_mango_color and edge_density >= 16.0:
         return "mangifera indica", 0.88
 
-    # B. APPLE SEED (Teardrop shape, glossy reddish-brown / chestnut):
-    is_apple_color = (cr > cg + 8) and (cr > cb + 18) and (cr <= 185)
-    if is_apple_color and aspect_ratio >= 1.4:
+    # B. WHEAT SEED / CARYOPSIS (Elongated grain, aspect ratio >= 1.40, golden-straw / amber tone):
+    is_grain_amber = (cr > 130 and cg > 105 and cb > 50 and cr >= cg and (cg - cb) >= 28 and sat >= 0.12)
+    if is_grain_amber and seed_aspect_ratio >= 1.40:
+        return "triticum aestivum", 0.89
+
+    # C. TOMATO SEED (Small flattened round disc, seed_aspect_ratio < 1.38, pale cream / straw):
+    is_tomato_color = (cr > 160 and cg > 140 and cb > 90 and sat >= 0.14)
+    if is_tomato_color and seed_aspect_ratio < 1.38:
+        return "solanum lycopersicum", 0.88
+
+    # D. APPLE SEED (Teardrop shape, glossy reddish-brown / chestnut, pointed apex):
+    is_apple_color = (cr > cg + 8) and (cr > cb + 18) and ((cg - cb) < 30 or cr <= 145) and c_lum <= 165
+    if is_apple_color and (seed_aspect_ratio >= 1.30 or max(w, h) / min(w, h) >= 1.35):
         return "malus domestica", 0.87
 
-    # C. CASHEW SEED (Kidney/curved shape, warm tan/grayish-brown):
-    if (130 <= cr <= 220) and (95 <= cg <= 190) and (55 <= cb <= 170) and aspect_ratio >= 1.25 and sat >= 0.16:
+    # E. CASHEW SEED (Curved kidney/comma shape, grayish-tan):
+    if (130 <= cr <= 220) and (95 <= cg <= 190) and (55 <= cb <= 170) and seed_aspect_ratio >= 1.25 and sat >= 0.16:
         return "anacardium occidentale", 0.87
 
-    # D. GUAVA SEED (Small angular yellowish-tan/cream seeds):
+    # F. GUAVA SEED (Small angular yellowish-tan/cream seeds):
     if cr > 185 and cg > 135 and cb > 95 and sat >= 0.30 and edge_density < 16.0:
         return "psidium guajava", 0.86
 
-    # E. SUNFLOWER SEED (Dark gray/black or striped black/white, teardrop achene):
-    if c_lum < 98 and (sat < 0.22 or (edge_density > 16.0 and aspect_ratio >= 1.25)):
+    # G. SUNFLOWER SEED (Dark gray/black or striped black/white achene):
+    if c_lum < 98 and (sat < 0.22 or (edge_density > 16.0 and seed_aspect_ratio >= 1.25)):
         return "helianthus annuus", 0.88
 
-    # F. PAPAYA SEED (Dark bumpy round seeds, very low luminance, high local rough texture):
+    # H. PAPAYA SEED (Dark bumpy round seeds, very low luminance, rough wrinkled texture):
     if c_lum < 78 and sat < 0.28 and edge_density > 22.0:
         return "carica papaya", 0.87
 
-    # G. PUMPKIN SEED (Flat creamy-white/buff oval with raised rim):
+    # I. PUMPKIN SEED (Flat creamy-white/buff oval with raised rim):
     if cr > 175 and cg > 170 and cb > 155 and sat < 0.16 and contrast > 20.0:
         return "cucurbita pepo", 0.86
 
-    # H. TOMATO SEED (Small pale straw disc, hairy margin):
-    if cr > 165 and cg > 145 and cb > 95 and sat >= 0.22:
-        return "solanum lycopersicum", 0.85
+    # J. CHILLI / PEPPER SEED (Small flat disc with slight notch, smooth creamy-yellow):
+    if cr > 170 and cg > 150 and cb > 90 and sat >= 0.25 and seed_aspect_ratio < 1.35:
+        return "capsicum annuum", 0.86
 
+    # Unrecognized / non-seed
     return None
 
 def identify_seed(
@@ -874,6 +990,48 @@ def identify_seed(
             "growing_instructions": guide["growing_instructions"],
             "confidence": 0.85,
             "confidence_percent": 85.0,
+            "candidates": candidates,
+            "data": result_data
+        }
+
+    # Case B.5: Check local trained PyTorch model if available
+    local_pred = predict_with_local_seed_model(processed_jpeg_bytes)
+    if local_pred:
+        class_name, model_conf, class_idx = local_pred
+        common_name = resolve_common_name(class_name, [])
+        guide = _resolve_botanical_guide(class_name, common_name, None)
+        conf_pct = round(model_conf * 100, 1)
+        candidates = [{
+            "scientific_name": class_name,
+            "common_name": common_name,
+            "confidence": round(model_conf, 4),
+            "confidence_percent": conf_pct
+        }]
+        result_data = {
+            "seed_name": common_name,
+            "scientific_name": class_name,
+            "common_name": common_name,
+            "class_index": class_idx,
+            "seed_morphology": guide["seed_morphology"],
+            "germination_guide": guide["germination_guide"],
+            "growing_instructions": guide["growing_instructions"],
+            "confidence": round(model_conf, 4),
+            "confidence_percent": conf_pct,
+            "candidates": candidates
+        }
+        return {
+            "success": True,
+            "status": "identified",
+            "message": f"Seed identified successfully as {common_name} ({class_name})",
+            "seed_name": common_name,
+            "scientific_name": class_name,
+            "common_name": common_name,
+            "class_index": class_idx,
+            "seed_morphology": guide["seed_morphology"],
+            "germination_guide": guide["germination_guide"],
+            "growing_instructions": guide["growing_instructions"],
+            "confidence": round(model_conf, 4),
+            "confidence_percent": conf_pct,
             "candidates": candidates,
             "data": result_data
         }

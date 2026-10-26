@@ -10,12 +10,21 @@ from dotenv import load_dotenv
 # Absolute path to backend/.env
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DOTENV_PATH = os.path.join(BASE_DIR, ".env")
-load_dotenv(DOTENV_PATH, override=True)
+if os.path.exists(DOTENV_PATH):
+    load_dotenv(DOTENV_PATH, override=False)
 
 def _get_api_key() -> Optional[str]:
-    """Safe retrieval of Gemini API Key strictly from environment."""
-    load_dotenv(DOTENV_PATH, override=True)
-    return (os.getenv("GEMINI_API_KEY") or os.getenv("AI_API_KEY") or "").strip() or None
+    """Safe retrieval of Gemini API Key strictly from environment or .env without wiping process env."""
+    key = (os.getenv("GEMINI_API_KEY") or os.getenv("AI_API_KEY") or "").strip()
+    if key:
+        return key
+    for p in [DOTENV_PATH, os.path.join(BASE_DIR, "..", ".env"), ".env"]:
+        if os.path.exists(p):
+            load_dotenv(p, override=False)
+            k = (os.getenv("GEMINI_API_KEY") or os.getenv("AI_API_KEY") or "").strip()
+            if k:
+                return k
+    return None
 
 # Supported and verified model configuration:
 # Primary: gemini-3.1-flash-lite (fast, multimodal, verified active)

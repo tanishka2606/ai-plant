@@ -12,7 +12,9 @@ import {
   Dna, 
   Layers, 
   RotateCcw,
-  ArrowRight
+  ArrowRight,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import { uploadPlant } from "../services/api";
 import "./PlantScanner.css";
@@ -26,6 +28,7 @@ function PlantScanner() {
   const [result, setResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
+  const [selectedCandidateIndex, setSelectedCandidateIndex] = useState(null);
 
   // Clear previous state when a new file is picked
   const handleFile = (file) => {
@@ -48,6 +51,7 @@ function PlantScanner() {
     setPreviewUrl(URL.createObjectURL(file));
     setResult(null);
     setErrorMsg("");
+    setSelectedCandidateIndex(null);
   };
 
   const handleInputChange = (e) => {
@@ -67,6 +71,7 @@ function PlantScanner() {
     setPreviewUrl(null);
     setResult(null);
     setErrorMsg("");
+    setSelectedCandidateIndex(null);
   };
 
   const handleAnalyze = async () => {
@@ -75,6 +80,7 @@ function PlantScanner() {
     setAnalyzing(true);
     setResult(null);
     setErrorMsg("");
+    setSelectedCandidateIndex(null);
 
     try {
       const response = await uploadPlant(selectedFile);
@@ -90,9 +96,27 @@ function PlantScanner() {
     }
   };
 
+  const handleCandidateClick = (idx) => {
+    setSelectedCandidateIndex((prev) => (prev === idx ? null : idx));
+  };
+
   const plantData = result?.data;
   const isIdentified = result?.success && result?.status === "identified";
   const isLowConfidence = result?.status === "low_confidence";
+
+  // Visible characteristics for "Why This Plant?"
+  const whyThisPlantFeatures = 
+    (plantData?.identifying_features && plantData.identifying_features.length > 0)
+      ? plantData.identifying_features
+      : (plantData?.characteristics && plantData.characteristics.length > 0)
+        ? plantData.characteristics
+        : [];
+
+  // Alternative candidates (excluding the primary top result)
+  const alternativeCandidates = 
+    plantData?.candidates && plantData.candidates.length > 1
+      ? plantData.candidates.slice(1, 5)
+      : [];
 
   return (
     <div className="page-container">
@@ -100,11 +124,11 @@ function PlantScanner() {
       <header className="page-header">
         <div className="page-badge">
           <Scan size={14} />
-          <span>Precision Taxonomic Vision</span>
+          <span>Precision Botanical Vision</span>
         </div>
         <h1 className="page-title">AI Plant Scanner</h1>
         <p className="page-subtitle">
-          Upload a clear photograph of a leaf, flower, or whole plant to determine its species taxonomy and retrieve cultivation care data.
+          Upload a clear photograph of a leaf, flower, or whole plant to identify its species and access plant care guidelines.
         </p>
       </header>
 
@@ -208,11 +232,11 @@ function PlantScanner() {
         <div className="scanner-right-panel">
           <div className="plant-card result-panel-card">
             <div className="result-panel-header">
-              <h3 className="panel-title">Taxonomic Intelligence</h3>
+              <h3 className="panel-title">Plant Identification</h3>
               {isIdentified && (
                 <span className="badge badge-success">
                   <CheckCircle2 size={12} />
-                  <span>Verified Match</span>
+                  <span>Plant Identified</span>
                 </span>
               )}
             </div>
@@ -224,9 +248,9 @@ function PlantScanner() {
                   <Scan size={36} />
                 </div>
                 <h4>Ready for Specimen</h4>
-                <p>Upload a clear photo on the left and click "Analyze Plant" to initiate neural classification.</p>
+                <p>Upload a clear photo on the left and click "Analyze Plant" to initiate botanical classification.</p>
                 <div className="guidelines-card">
-                  <strong>For optimal taxonomic accuracy:</strong>
+                  <strong>For optimal identification:</strong>
                   <ul>
                     <li>Photograph in natural daylight without strong glare</li>
                     <li>Ensure leaves, flowers, or fruit are in sharp focus</li>
@@ -244,19 +268,19 @@ function PlantScanner() {
                   <Scan size={32} className="radar-icon" />
                 </div>
                 <h4>Examining Specimen Features</h4>
-                <p>Querying botanical neural taxonomy against millions of reference observations...</p>
+                <p>Analyzing botanical features against reference observations...</p>
                 <div className="loading-step-list">
                   <div className="loading-step active">
                     <span className="step-bullet"></span>
-                    <span>Multi-spectral pixel pre-flight validation</span>
+                    <span>Image quality and lighting validation</span>
                   </div>
                   <div className="loading-step active">
                     <span className="step-bullet"></span>
-                    <span>Taxonomic organ and feature extraction</span>
+                    <span>Morphological feature extraction</span>
                   </div>
                   <div className="loading-step active">
                     <span className="step-bullet"></span>
-                    <span>Confidence threshold evaluation</span>
+                    <span>Botanical species matching</span>
                   </div>
                 </div>
               </div>
@@ -268,13 +292,13 @@ function PlantScanner() {
                 <div className="alert-banner alert-warning">
                   <AlertTriangle size={18} />
                   <div>
-                    <strong>Low confidence identification</strong>
+                    <strong>Low Confidence Identification</strong>
                     <p style={{ marginTop: "4px" }}>
-                      Try uploading a clearer image showing the leaves, flower, stem or whole plant.
+                      Try uploading a clearer photo showing the leaves, flower, stem, or whole plant.
                     </p>
                     {plantData?.confidence_percent !== undefined && (
                       <div className="threshold-meta">
-                        Observation score: <strong>{plantData.confidence_percent}%</strong> (Below confidence threshold).
+                        Confidence: <strong>{plantData.confidence_percent}%</strong> (Below identification threshold).
                       </div>
                     )}
                   </div>
@@ -290,7 +314,7 @@ function PlantScanner() {
                           <em>({cand.scientific_name})</em>
                         </div>
                         <span className="confidence-badge confidence-medium">
-                          {cand.confidence_percent}%
+                          Confidence: {cand.confidence_percent}%
                         </span>
                       </div>
                     ))}
@@ -299,13 +323,14 @@ function PlantScanner() {
               </div>
             )}
 
-            {/* State 4: High Confidence Identification */}
+            {/* State 4: Identified Result */}
             {isIdentified && plantData && (
               <div className="identified-result-state">
+                {/* Primary Identification Box: Plant name & single confidence score */}
                 <div className="primary-identification-box">
                   <div className="ident-top-row">
-                    <div>
-                      <span className="species-tag">Taxonomic Match</span>
+                    <div className="ident-title-col">
+                      <span className="species-tag">Plant Identified</span>
                       <h2 className="plant-common-name">
                         {plantData.common_name || plantData.plant_name}
                       </h2>
@@ -313,20 +338,14 @@ function PlantScanner() {
                         <em>{plantData.scientific_name}</em>
                       </div>
                     </div>
-                    <span
-                      className={`confidence-badge ${
-                        plantData.confidence >= 0.70 ? "confidence-high" : "confidence-medium"
-                      }`}
-                    >
-                      {plantData.confidence_percent}% Match
-                    </span>
+                    <div className="confidence-pill-container">
+                      <span className="confidence-pill">
+                        Confidence: {plantData.confidence_percent}%
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Confidence progress bar */}
-                  <div className="confidence-metric-row">
-                    <span className="metric-label">Identification confidence:</span>
-                    <strong className="metric-pct">{plantData.confidence_percent}%</strong>
-                  </div>
+                  {/* Clean Visual Confidence Bar (without duplicate label) */}
                   <div className="confidence-bar-wrap">
                     <div 
                       className={`confidence-bar-fill ${plantData.confidence >= 0.70 ? "high" : "medium"}`}
@@ -342,7 +361,9 @@ function PlantScanner() {
                       <Dna size={14} />
                       <span>Species</span>
                     </div>
-                    <div className="meta-card-val">{plantData.species || plantData.scientific_name}</div>
+                    <div className="meta-card-val" title={plantData.species || plantData.scientific_name}>
+                      <em>{plantData.species || plantData.scientific_name}</em>
+                    </div>
                   </div>
 
                   <div className="meta-card">
@@ -350,7 +371,9 @@ function PlantScanner() {
                       <Layers size={14} />
                       <span>Genus</span>
                     </div>
-                    <div className="meta-card-val">{plantData.genus || "Taxonomic Genus"}</div>
+                    <div className="meta-card-val" title={plantData.genus || "Not available"}>
+                      {plantData.genus || "Not available"}
+                    </div>
                   </div>
 
                   {plantData.family && (
@@ -359,30 +382,151 @@ function PlantScanner() {
                         <Sparkles size={14} />
                         <span>Family</span>
                       </div>
-                      <div className="meta-card-val">{plantData.family}</div>
+                      <div className="meta-card-val" title={plantData.family}>
+                        {plantData.family}
+                      </div>
                     </div>
                   )}
                 </div>
 
-                {/* Alternative Candidates */}
-                {plantData.candidates && plantData.candidates.length > 1 && (
-                  <div className="candidate-list">
-                    <h5 className="candidates-heading">Alternative Candidates:</h5>
-                    {plantData.candidates.slice(1, 4).map((cand, idx) => (
-                      <div key={idx} className="candidate-item">
-                        <div className="candidate-names">
-                          <strong>{cand.common_name || cand.scientific_name}</strong>
-                          <em>({cand.scientific_name})</em>
-                        </div>
-                        <span className="confidence-badge confidence-medium">
-                          {cand.confidence_percent}%
-                        </span>
-                      </div>
-                    ))}
+                {/* Section 2: Why This Plant? */}
+                {whyThisPlantFeatures.length > 0 && (
+                  <div className="why-this-plant-card">
+                    <div className="why-this-plant-header">
+                      <Sparkles size={16} className="why-icon" />
+                      <h4 className="why-this-plant-title">Why This Plant?</h4>
+                    </div>
+                    <p className="why-this-plant-subtitle">
+                      Visible characteristics that support this identification:
+                    </p>
+                    <ul className="why-this-plant-list">
+                      {whyThisPlantFeatures.map((trait, tIdx) => (
+                        <li key={tIdx}>{trait}</li>
+                      ))}
+                    </ul>
                   </div>
                 )}
 
-                {/* Action CTAs */}
+                {/* Section 3: Alternative Candidates (Visually organized & interactive) */}
+                {alternativeCandidates.length > 0 && (
+                  <div className="alternative-candidates-section">
+                    <div className="candidates-section-header">
+                      <h4 className="candidates-heading">Alternative Candidates</h4>
+                      <p className="candidates-subtext">
+                        Other possible matches based on image analysis. Click any candidate to view its botanical details.
+                      </p>
+                    </div>
+
+                    <div className="candidates-list-interactive">
+                      {alternativeCandidates.map((cand, idx) => {
+                        const isSelected = selectedCandidateIndex === idx;
+                        return (
+                          <div
+                            key={idx}
+                            className={`candidate-card ${isSelected ? "selected" : ""}`}
+                          >
+                            <div
+                              className="candidate-card-summary"
+                              onClick={() => handleCandidateClick(idx)}
+                              role="button"
+                              tabIndex={0}
+                            >
+                              <div className="candidate-names-wrap">
+                                <div className="candidate-primary-name">
+                                  {cand.common_name || cand.scientific_name}
+                                </div>
+                                <div className="candidate-scientific-name">
+                                  <em>{cand.scientific_name}</em>
+                                </div>
+                              </div>
+                              <div className="candidate-meta-right">
+                                <span className="candidate-confidence-pill">
+                                  Confidence: {cand.confidence_percent}%
+                                </span>
+                                <span className="candidate-toggle-link">
+                                  {isSelected ? (
+                                    <>
+                                      <span>Hide details</span>
+                                      <ChevronUp size={14} />
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span>View details</span>
+                                      <ChevronDown size={14} />
+                                    </>
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Expanded botanical details when selected */}
+                            {isSelected && (
+                              <div className="candidate-expanded-content">
+                                <div className="candidate-botanical-info">
+                                  <span className="candidate-info-title">Basic Botanical Information</span>
+                                  <div className="candidate-info-grid">
+                                    <div className="candidate-info-cell">
+                                      <span className="info-cell-label">Species</span>
+                                      <span className="info-cell-val"><em>{cand.scientific_name}</em></span>
+                                    </div>
+                                    {cand.genus && (
+                                      <div className="candidate-info-cell">
+                                        <span className="info-cell-label">Genus</span>
+                                        <span className="info-cell-val">{cand.genus}</span>
+                                      </div>
+                                    )}
+                                    {cand.family && (
+                                      <div className="candidate-info-cell">
+                                        <span className="info-cell-label">Family</span>
+                                        <span className="info-cell-val">{cand.family}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {cand.characteristics && cand.characteristics.length > 0 ? (
+                                  <div className="candidate-traits-box">
+                                    <span className="candidate-traits-title">Identifying Characteristics:</span>
+                                    <ul className="candidate-traits-list">
+                                      {cand.characteristics.map((charItem, cIdx) => (
+                                        <li key={cIdx}>{charItem}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                ) : (
+                                  <div className="candidate-traits-empty">
+                                    <em>Detailed morphological characteristics not cataloged for this alternative candidate.</em>
+                                  </div>
+                                )}
+
+                                <div className="candidate-action-bar">
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline btn-candidate-care"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(`/plant-care/${encodeURIComponent(cand.scientific_name)}`, {
+                                        state: {
+                                          plantName: cand.scientific_name,
+                                          commonName: cand.common_name,
+                                        },
+                                      });
+                                    }}
+                                  >
+                                    <BookOpen size={14} />
+                                    <span>View Care Guide for {cand.common_name || cand.scientific_name}</span>
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Primary Action Buttons */}
                 <div className="identification-action-row">
                   <button
                     className="btn btn-primary btn-action-care"

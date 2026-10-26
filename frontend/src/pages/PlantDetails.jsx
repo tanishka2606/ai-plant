@@ -301,6 +301,17 @@ function PlantDetails() {
               </div>
             )}
 
+            {/* Common Problems & Prevention */}
+            {careData.common_problems_and_prevention && (
+              <div className="care-summary-box" style={{ marginTop: "16px", borderLeft: "4px solid #f59e0b", background: "rgba(254, 243, 199, 0.4)" }}>
+                <div className="summary-title-row">
+                  <AlertTriangle size={18} style={{ color: "#d97706" }} />
+                  <h3 style={{ color: "#92400e" }}>Common Problems & Prevention</h3>
+                </div>
+                <p className="summary-text" style={{ color: "#78350f" }}>{careData.common_problems_and_prevention}</p>
+              </div>
+            )}
+
             {/* Assistant Jump Button */}
             <div className="care-footer-actions">
               <button

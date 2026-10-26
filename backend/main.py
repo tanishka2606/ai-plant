@@ -238,14 +238,16 @@ def assistant_chat(
         # Support both JSON payload and query/form parameters
         q = ""
         p_name = ""
+        hist = None
         if payload:
             q = payload.question
             p_name = payload.plant_name or ""
+            hist = payload.history
         elif question:
             q = question
             p_name = plant_name or ""
 
-        result = ask_assistant(q, p_name, db)
+        result = ask_assistant(q, p_name, db, history=hist)
         return result
     except Exception as e:
         print("assistant error:", e)

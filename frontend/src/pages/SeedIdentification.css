@@ -55,3 +55,84 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Seed Sections (Morphology, Germination, Growing) */
+.seed-section-card {
+  margin-top: 16px;
+  padding: 16px 18px;
+  border-radius: var(--radius-sm, 10px);
+  text-align: left;
+}
+
+.morphology-card {
+  background: rgba(16, 185, 129, 0.07);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.germination-card {
+  background: rgba(59, 130, 246, 0.05);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.growing-card {
+  background: rgba(245, 158, 11, 0.06);
+  border: 1px solid rgba(245, 158, 11, 0.22);
+}
+
+.seed-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.seed-section-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--forest-900, #064e3b);
+}
+
+.germination-card .seed-section-title {
+  color: #1e40af;
+}
+
+.growing-card .seed-section-title {
+  color: #92400e;
+}
+
+.seed-section-text {
+  margin: 0;
+  font-size: 13.5px;
+  color: #374151;
+  line-height: 1.55;
+}
+
+.seed-guide-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.seed-guide-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.seed-guide-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #64748b;
+}
+
+.seed-guide-value {
+  margin: 0;
+  font-size: 13.5px;
+  color: #1f2937;
+  line-height: 1.5;
+}

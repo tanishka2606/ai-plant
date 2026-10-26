@@ -30,8 +30,8 @@ function Assistant() {
       id: 1,
       sender: "bot",
       text: initialPlant
-        ? `Hello! I am PlantAI Assistant. I am focused on ${initialPlant} with verified MySQL care parameters. What would you like to know regarding watering intervals, sunlight, soil, fertilizers, or troubleshooting?`
-        : "Hello! I am PlantAI Assistant. Ask me anything regarding plant care routines, watering schedules, sunlight needs, repotting, fertilizer dosing, or yellow foliage remedies.",
+        ? `Hello! I'm here to help you care for your ${initialPlant}. What would you like to know about watering, sunlight, soil, fertilizers, or troubleshooting?`
+        : "Hello! I'm your plant-care assistant. Ask me anything about caring for your plants, watering schedules, sunlight needs, or troubleshooting problems like yellow leaves.",
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     },
   ]);
@@ -62,7 +62,13 @@ function Assistant() {
     setLoading(true);
 
     try {
-      const response = await askAssistant(query, activePlant);
+      // Build recent conversation history for conversational continuity
+      const historyPayload = messages.slice(-6).map((m) => ({
+        sender: m.sender,
+        text: m.text,
+      }));
+
+      const response = await askAssistant(query, activePlant, historyPayload);
       const botAnswer = response.answer || response.message || "I apologize, but I could not formulate a response right now.";
 
       if (response.plant_name && !activePlant) {
@@ -101,8 +107,8 @@ function Assistant() {
         id: Date.now(),
         sender: "bot",
         text: activePlant
-          ? `Chat history cleared. Still focused on ${activePlant}. Ask me any botanical care question.`
-          : "Chat history cleared. How can I assist you with your plants today?",
+          ? `Chat history cleared. Still focused on ${activePlant}. Ask me any plant care question!`
+          : "Chat history cleared. How can I help you with your plants today?",
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }
     ]);

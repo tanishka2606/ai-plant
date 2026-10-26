@@ -1,3 +1,4 @@
+/* Simple, Clean Foliar Pathology Layout */
 .health-workspace-grid {
   display: grid;
   grid-template-columns: 1fr 1.15fr;
@@ -6,48 +7,50 @@
 }
 
 .health-upload-card, .health-result-panel-card {
-  min-height: 500px;
+  min-height: 480px;
   display: flex;
   flex-direction: column;
 }
 
-.health-assessment-content {
+/* Simplified Report Card */
+.simple-report-card {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 16px;
 }
 
-/* Status Cards */
-.health-status-box {
-  border-radius: var(--radius-md);
-  padding: 24px;
-  border: 1px solid var(--border-light);
+/* Section styling */
+.simple-section {
+  background: var(--bg-subtle, #f9fafb);
+  border: 1px solid var(--border-subtle, #e5e7eb);
+  border-radius: var(--radius-md, 10px);
+  padding: 16px 18px;
 }
 
-.healthy-box {
-  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-  border-color: rgba(21, 128, 61, 0.25);
+/* 1. Hero Section (Plant Health) */
+.simple-hero-section {
+  background: #ffffff;
+  border-color: #e5e7eb;
 }
 
-.diseased-box {
-  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-  border-color: rgba(217, 119, 6, 0.25);
+.plant-health-header-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.status-badge-row {
+.plant-health-status-wrap {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
 }
 
 .status-pill {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 5px 12px;
-  border-radius: var(--radius-full);
-  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 14.5px;
   font-weight: 700;
 }
 
@@ -63,145 +66,221 @@
   border: 1px solid rgba(180, 83, 9, 0.2);
 }
 
-.health-main-heading {
-  font-size: 22px;
-  font-weight: 800;
-  color: #14532d;
-  margin-bottom: 8px;
-  letter-spacing: -0.02em;
+.status-pill-neutral {
+  background: #f3f4f6;
+  color: #4b5563;
+  border: 1px solid #d1d5db;
 }
 
-.health-observation-text {
-  font-size: 14.5px;
-  color: #166534;
-  line-height: 1.5;
-  margin-bottom: 16px;
-}
-
-/* Condition Highlight */
-.condition-highlight-wrap {
-  margin-bottom: 14px;
-}
-
-.condition-pre-label {
-  font-size: 11.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #92400e;
-  display: block;
-  margin-bottom: 4px;
-}
-
-.condition-name {
-  font-size: 26px;
-  font-weight: 800;
-  color: #78350f;
-  letter-spacing: -0.02em;
-}
-
-.observation-box {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(180, 83, 9, 0.15);
-  border-radius: var(--radius-sm);
-  padding: 12px 16px;
-  margin-bottom: 16px;
-}
-
-.observation-box strong {
-  font-size: 13px;
-  color: #78350f;
-  display: block;
-  margin-bottom: 2px;
-}
-
-.observation-box p {
+/* Clean, dedicated line for Model match score */
+.model-score-row {
   font-size: 13.5px;
-  color: #92400e;
-  line-height: 1.5;
+  color: #4b5563;
+  font-weight: 500;
 }
 
-/* Pathology Grid */
-.pathology-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+.model-score-row strong {
+  color: #b45309;
+  font-weight: 700;
 }
 
-.pathology-section-box {
-  background: var(--bg-subtle);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: 18px 20px;
+.simple-specimen-line {
+  font-size: 13.5px;
+  color: #1f2937;
 }
 
-.pathology-section-box.full-width {
-  grid-column: span 2;
+.simple-specimen-line strong {
+  color: #065f46;
 }
 
-.section-title-row {
+/* 2. Problem Level Section */
+.problem-level-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.problem-level-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 12px;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.badge-level-none {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid rgba(21, 128, 61, 0.25);
+}
+
+.badge-level-low {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid rgba(180, 83, 9, 0.25);
+}
+
+.badge-level-medium {
+  background: #ffedd5;
+  color: #c2410c;
+  border: 1px solid rgba(194, 65, 12, 0.25);
+}
+
+.badge-level-high {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid rgba(185, 28, 28, 0.25);
+}
+
+.problem-level-desc {
+  font-size: 13px;
+  color: #4b5563;
+  line-height: 1.45;
+  margin: 0;
+  flex: 1;
+  min-width: 200px;
+}
+
+/* Section Headers */
+.simple-section-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
-.section-title-row h4 {
-  font-size: 14.5px;
+.simple-section-title {
+  font-size: 15.5px;
   font-weight: 700;
-  color: var(--text-primary);
+  color: var(--text-primary, #111827);
+  margin: 0;
 }
 
-.pathology-list {
-  padding-left: 18px;
+/* Bullet list (What I Found, What To Do, Future Precautions) */
+.simple-bullet-list {
+  padding-left: 20px;
+  margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
 }
 
-.pathology-list li {
-  font-size: 13px;
-  color: var(--text-secondary);
+.simple-bullet-list li {
+  font-size: 13.5px;
+  color: #374151;
+  line-height: 1.45;
+}
+
+.simple-bullet-list.action-bullets li {
+  color: #065f46;
+  font-weight: 500;
+}
+
+.simple-bullet-list.precaution-bullets li {
+  color: #334155;
+}
+
+/* 4. Possible Problem Text */
+.simple-problem-text {
+  font-size: 13.5px;
+  color: #374151;
   line-height: 1.5;
+  margin: 0;
 }
 
-.text-emerald {
-  color: var(--accent-emerald);
+.simple-problem-text strong {
+  color: #78350f;
 }
 
-.text-accent {
-  color: var(--accent-mint);
+.not-confirmed-tag {
+  color: #92400e;
+  font-style: italic;
 }
 
-/* AI Guidance Disclaimer */
-.ai-disclaimer-notice {
+/* 7. Note Callout Box */
+.simple-note-box {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 14px 18px;
-  background: var(--bg-subtle);
-  border-left: 3px solid var(--forest-700);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-sm, 8px);
   font-size: 12.5px;
-  color: var(--text-muted);
-  line-height: 1.5;
+  color: #64748b;
+  line-height: 1.45;
 }
 
-.ai-disclaimer-notice strong {
-  color: var(--text-primary);
+.simple-note-box strong {
+  color: #334155;
+}
+
+/* Helper Colors */
+.text-emerald {
+  color: #10b981;
+}
+
+.text-accent {
+  color: #059669;
+}
+
+.text-amber {
+  color: #d97706;
 }
 
 @media (max-width: 960px) {
   .health-workspace-grid {
     grid-template-columns: 1fr;
   }
-  .pathology-grid {
-    grid-template-columns: 1fr;
-  }
-  .pathology-section-box.full-width {
-    grid-column: span 1;
-  }
+}
+
+
+/* 4. Possible Problem Block Styling */
+.possible-problem-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.possible-issue-line {
+  font-size: 14px;
+  color: #374151;
+  font-weight: 500;
+}
+
+.possible-issue-line strong {
+  color: #78350f;
+  font-weight: 700;
+}
+
+.possible-issue-desc {
+  font-size: 13.5px;
+  color: #4b5563;
+  line-height: 1.5;
+  margin: 0;
+}
+
+
+/* 4. Problem Block Styling */
+.problem-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.problem-name {
+  font-size: 14.5px;
+  color: #78350f;
+  font-weight: 700;
+}
+
+.problem-desc {
+  font-size: 13.5px;
+  color: #4b5563;
+  line-height: 1.5;
+  margin: 0;
 }

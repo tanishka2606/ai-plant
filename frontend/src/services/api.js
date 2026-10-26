@@ -108,7 +108,7 @@ export async function getPlantCare(plantName) {
  * Ask the AI Plant Assistant a botanical care question.
  * Section 30: askAssistant()
  */
-export async function askAssistant(question, plantName = "") {
+export async function askAssistant(question, plantName = "", history = []) {
   try {
     const response = await fetch(`${API_BASE_URL}/assistant`, {
       method: "POST",
@@ -118,6 +118,7 @@ export async function askAssistant(question, plantName = "") {
       body: JSON.stringify({
         question: question.trim(),
         plant_name: (plantName || "").trim(),
+        history: history,
       }),
     });
 

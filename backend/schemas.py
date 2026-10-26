@@ -76,6 +76,7 @@ class PlantCareData(BaseModel):
 class AssistantRequest(BaseModel):
     question: str
     plant_name: Optional[str] = ""
+    history: Optional[List[Dict[str, Any]]] = None
 
 class ApiResponse(BaseModel):
     success: bool

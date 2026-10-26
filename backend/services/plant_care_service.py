@@ -86,49 +86,25 @@ def _get_openplantbook_token() -> Optional[str]:
 
 
 def _fetch_from_gemini(plant_name: str) -> Optional[Dict[str, Any]]:
-    """Query Gemini 2.0 Flash REST API for structured botanical care guidance."""
-    if not AI_API_KEY:
-        return None
-
+    """Query Gemini REST API via gemini_service for structured botanical care guidance."""
     try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={AI_API_KEY}"
-        prompt = (
-            f"You are an expert master horticulturist. Provide comprehensive, accurate, reliable plant care instructions for '{plant_name}'. "
-            "Output strictly a JSON object with the following keys: "
-            "'plant_name' (scientific / botanical binomial or accepted taxon), "
-            "'common_name' (popular common English name), "
-            "'sunlight' (specific lighting requirements including hours and intensity), "
-            "'water' (watering routine, frequency, and soil moisture level), "
-            "'soil' (soil type, texture, drainage, and pH preferences), "
-            "'container' (pot size, depth, and drainage specifications), "
-            "'location' (optimal indoor/outdoor placement, temperature range in Celsius, and humidity), "
-            "'fertilizer' (NPK ratio, organic amendments, and seasonal feeding schedule), "
-            "'care' (basic care instructions, pruning guidance, and key horticultural survival tips)."
-        )
-
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"response_mime_type": "application/json"}
-        }
-        res = requests.post(url, json=payload, timeout=12)
-        if res.status_code == 200:
-            data = res.json()
-            raw_text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-            if raw_text:
-                parsed = json.loads(raw_text)
-                return {
-                    "id": None,
-                    "plant_name": parsed.get("plant_name") or plant_name.capitalize(),
-                    "common_name": parsed.get("common_name") or plant_name.capitalize(),
-                    "sunlight": parsed.get("sunlight") or "Requires bright natural light.",
-                    "water": parsed.get("water") or "Water regularly when topsoil feels dry.",
-                    "soil": parsed.get("soil") or "Rich, well-draining soil with good organic content.",
-                    "container": parsed.get("container") or "Container with drainage holes sized to root ball.",
-                    "location": parsed.get("location") or "Well-ventilated position with stable temperatures.",
-                    "fertilizer": parsed.get("fertilizer") or "Apply balanced organic fertilizer during active growth.",
-                    "care": parsed.get("care") or "Maintain steady hydration, monitor for common pests, and prune dead foliage.",
-                    "source": "AI Botanical Intelligence"
-                }
+        from .gemini_service import generate_plant_care
+        parsed = generate_plant_care(plant_name)
+        if parsed and parsed.get("common_name"):
+            return {
+                "id": None,
+                "plant_name": parsed.get("plant_name") or plant_name.capitalize(),
+                "common_name": parsed.get("common_name") or plant_name.capitalize(),
+                "sunlight": parsed.get("sunlight") or "Requires bright indirect natural light.",
+                "water": parsed.get("water") or "Water thoroughly when top 1-2 inches of soil feels dry.",
+                "soil": parsed.get("soil") or "Rich, well-draining potting soil with organic matter.",
+                "container": parsed.get("container") or "Container with bottom drainage holes sized to root ball.",
+                "location": parsed.get("location") or "Well-ventilated position with stable ambient temperatures.",
+                "fertilizer": parsed.get("fertilizer") or "Apply balanced organic fertilizer during active growth season.",
+                "care": parsed.get("care") or "Maintain steady hydration, monitor for pests, and wipe leaves periodically.",
+                "common_problems_and_prevention": parsed.get("common_problems_and_prevention") or "Ensure efficient drainage to prevent root rot and inspect leaf undersides for pests.",
+                "source": "AI Botanical Intelligence"
+            }
     except Exception as e:
         print("[PlantCare] Gemini care generation error:", e)
 

@@ -264,8 +264,9 @@
   padding: 14px 18px;
   border-radius: 16px;
   font-size: 14.5px;
-  line-height: 1.55;
+  line-height: 1.6;
   word-break: break-word;
+  white-space: pre-wrap;
 }
 
 .bubble-bot {

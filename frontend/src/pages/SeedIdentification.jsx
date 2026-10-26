@@ -3,13 +3,52 @@ import {
   Sprout, 
   UploadCloud, 
   X, 
-  CheckCircle2, 
   AlertTriangle, 
   RotateCcw, 
-  Dna, 
   Sparkles,
   ArrowRight
 } from "lucide-react";
+
+const F_UNIT = "[°\\u00b0]?\\s*(?:Fahrenheit|F)\\b";
+const F_STR = `(?:(?:\\d+(?:\\.\\d+)?\\s*${F_UNIT}\\s*(?:to|-|–)\\s*\\d+(?:\\.\\d+)?\\s*${F_UNIT})|(?:\\d+(?:\\.\\d+)?\\s*(?:to|-|–)\\s*\\d+(?:\\.\\d+)?\\s*${F_UNIT})|(?:\\d+(?:\\.\\d+)?\\s*${F_UNIT}))`;
+
+const sanitizeCelsius = (text) => {
+  if (!text || typeof text !== "string") return text;
+  let cleaned = text;
+
+  // 1. '68°F to 77°F (20°C to 25°C)' -> '20°C to 25°C'
+  cleaned = cleaned.replace(
+    new RegExp(F_STR + "\\s*\\(([^)]*[°\\u00b0]\\s*C[^)]*)\\)", "gi"),
+    "$1"
+  );
+
+  // 2. If Celsius is already present in the text, safely strip companion Fahrenheit expressions
+  if (/[°\u00b0]\s*C|Celsius/i.test(cleaned)) {
+    cleaned = cleaned.replace(new RegExp("\\s*[/,]\\s*(?:approx\\.?\\s*)?" + F_STR, "gi"), "");
+    cleaned = cleaned.replace(new RegExp("\\s*\\(\\s*(?:approx\\.?\\s*)?" + F_STR + "\\s*\\)", "gi"), "");
+    cleaned = cleaned.replace(new RegExp("\\s*(?:approx\\.?\\s*)?" + F_STR, "gi"), "");
+  } else {
+    // 3. Celsius is NOT present, convert Fahrenheit to Celsius
+    cleaned = cleaned.replace(
+      new RegExp(F_STR, "gi"),
+      (match) => {
+        const nums = match.match(/\d+(?:\.\d+)?/g);
+        if (nums && nums.length === 2) {
+          const c1 = Math.round(((parseFloat(nums[0]) - 32) * 5) / 9);
+          const c2 = Math.round(((parseFloat(nums[1]) - 32) * 5) / 9);
+          const sep = /to/i.test(match) ? " to " : " - ";
+          return `${c1}°C${sep}${c2}°C`;
+        } else if (nums && nums.length === 1) {
+          const c = Math.round(((parseFloat(nums[0]) - 32) * 5) / 9);
+          return `${c}°C`;
+        }
+        return match;
+      }
+    );
+  }
+
+  return cleaned.replace(/\(\s*\)/g, "").replace(/\s{2,}/g, " ").trim();
+};
 import { identifySeed } from "../services/api";
 import "./SeedIdentification.css";
 
@@ -201,12 +240,6 @@ function SeedIdentification() {
           <div className="plant-card seed-result-panel-card">
             <div className="result-panel-header">
               <h3 className="panel-title">Seed Classification</h3>
-              {isIdentified && (
-                <span className="badge badge-success">
-                  <CheckCircle2 size={12} />
-                  <span>Seed Verified</span>
-                </span>
-              )}
             </div>
 
             {/* State 1: Empty State */}
@@ -280,11 +313,7 @@ function SeedIdentification() {
                     <p style={{ marginTop: "4px", fontSize: "13px", color: "var(--text-secondary)" }}>
                       Try placing the seed on a plain, contrasting surface with brighter ambient lighting.
                     </p>
-                    {seedData?.confidence_percent !== undefined && (
-                      <div className="threshold-meta">
-                        Observation score: <strong>{seedData.confidence_percent}%</strong> (Below confidence threshold).
-                      </div>
-                    )}
+                    
                   </div>
                 </div>
 
@@ -297,9 +326,7 @@ function SeedIdentification() {
                           <strong>{cand.common_name || cand.scientific_name}</strong>
                           <em>({cand.scientific_name})</em>
                         </div>
-                        <span className="confidence-badge confidence-medium">
-                          {cand.confidence_percent}%
-                        </span>
+                        
                       </div>
                     ))}
                   </div>
@@ -307,7 +334,7 @@ function SeedIdentification() {
               </div>
             )}
 
-            {/* State 4: Successful Identification (Adhering strictly to Rule 21: IDENTIFICATION ONLY) */}
+            {/* State 4: Successful Identification */}
             {isIdentified && seedData && (
               <div className="seed-identified-content">
                 <div className="seed-result-card-inner">
@@ -334,40 +361,88 @@ function SeedIdentification() {
                     </div>
                   </div>
 
-                  <div className="confidence-metric-row" style={{ marginTop: "20px" }}>
-                    <span className="metric-label">Identification Confidence</span>
-                    <span className="confidence-badge confidence-high">
-                      {seedData.confidence_percent}% Confidence
-                    </span>
-                  </div>
+                  {/* Germination Guide */}
+                  {seedData.germination_guide && (
+                    <div className="seed-section-card germination-card">
+                      <div className="seed-section-header">
+                        <Sprout size={16} className="text-emerald" />
+                        <span className="seed-section-title">Germination Guide</span>
+                      </div>
+                      {typeof seedData.germination_guide === "object" ? (
+                        <div className="seed-guide-grid">
+                          {seedData.germination_guide.preparation && (
+                            <div className="seed-guide-item">
+                              <span className="seed-guide-label">Seed Preparation</span>
+                              <p className="seed-guide-value">{sanitizeCelsius(seedData.germination_guide.preparation)}</p>
+                            </div>
+                          )}
+                          {seedData.germination_guide.germination_time && (
+                            <div className="seed-guide-item">
+                              <span className="seed-guide-label">Approximate Germination Time</span>
+                              <p className="seed-guide-value">{sanitizeCelsius(seedData.germination_guide.germination_time)}</p>
+                            </div>
+                          )}
+                          {seedData.germination_guide.conditions && (
+                            <div className="seed-guide-item">
+                              <span className="seed-guide-label">Germination Conditions</span>
+                              <p className="seed-guide-value">{sanitizeCelsius(seedData.germination_guide.conditions)}</p>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="seed-section-text">{sanitizeCelsius(seedData.germination_guide)}</p>
+                      )}
+                    </div>
+                  )}
 
-                  <div className="confidence-bar-wrap">
-                    <div 
-                      className="confidence-bar-fill high"
-                      style={{ width: `${Math.min(100, Math.max(20, seedData.confidence_percent))}%` }}
-                    ></div>
-                  </div>
+                  {/* Growing Instructions */}
+                  {seedData.growing_instructions && (
+                    <div className="seed-section-card growing-card">
+                      <div className="seed-section-header">
+                        <Sparkles size={16} className="text-accent" />
+                        <span className="seed-section-title">Growing Instructions</span>
+                      </div>
+                      {typeof seedData.growing_instructions === "object" ? (
+                        <div className="seed-guide-grid">
+                          {seedData.growing_instructions.soil && (
+                            <div className="seed-guide-item">
+                              <span className="seed-guide-label">Soil & Growing Medium</span>
+                              <p className="seed-guide-value">{sanitizeCelsius(seedData.growing_instructions.soil)}</p>
+                            </div>
+                          )}
+                          {seedData.growing_instructions.planting_depth && (
+                            <div className="seed-guide-item">
+                              <span className="seed-guide-label">Planting Depth & Method</span>
+                              <p className="seed-guide-value">{sanitizeCelsius(seedData.growing_instructions.planting_depth)}</p>
+                            </div>
+                          )}
+                          {seedData.growing_instructions.watering && (
+                            <div className="seed-guide-item">
+                              <span className="seed-guide-label">Watering Instructions</span>
+                              <p className="seed-guide-value">{sanitizeCelsius(seedData.growing_instructions.watering)}</p>
+                            </div>
+                          )}
+                          {seedData.growing_instructions.sunlight && (
+                            <div className="seed-guide-item">
+                              <span className="seed-guide-label">Sunlight Requirements</span>
+                              <p className="seed-guide-value">{sanitizeCelsius(seedData.growing_instructions.sunlight)}</p>
+                            </div>
+                          )}
+                          {seedData.growing_instructions.transplanting && (
+                            <div className="seed-guide-item">
+                              <span className="seed-guide-label">Transplanting Guidance</span>
+                              <p className="seed-guide-value">{sanitizeCelsius(seedData.growing_instructions.transplanting)}</p>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="seed-section-text">{sanitizeCelsius(seedData.growing_instructions)}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                {/* Candidates if multiple */}
-                {seedData.candidates && seedData.candidates.length > 1 && (
-                  <div className="candidate-list">
-                    <h5 className="candidates-heading">Alternative Species Candidates:</h5>
-                    {seedData.candidates.slice(1, 4).map((cand, idx) => (
-                      <div key={idx} className="candidate-item">
-                        <div className="candidate-names">
-                          <strong>{cand.common_name || cand.scientific_name}</strong>
-                          <em>({cand.scientific_name})</em>
-                        </div>
-                        <span className="confidence-badge confidence-medium">
-                          {cand.confidence_percent}%
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Action button per Section 22 */}
+                {/* Action button: Identify Another Seed */}
                 <div style={{ marginTop: "24px", textAlign: "center" }}>
                   <button
                     className="btn btn-primary"
@@ -380,6 +455,7 @@ function SeedIdentification() {
                 </div>
               </div>
             )}
+          
           </div>
         </div>
       </div>

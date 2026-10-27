@@ -149,7 +149,8 @@ def _generate_expert_fallback(
     Ensures natural, plant-specific, step-by-step guidance in simple English
     even when external AI API is unavailable.
     """
-    ql = question.lower().strip()
+    q = (question or "").strip()
+    ql = q.lower()
     p_clean = (plant_name or "").lower().strip()
     p_label = plant_name or "your plant"
 

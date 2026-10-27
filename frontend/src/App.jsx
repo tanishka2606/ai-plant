@@ -26,6 +26,7 @@ function App() {
 
           {/* Dedicated Seed Recognition */}
           <Route path="/seed-identification" element={<SeedIdentification />} />
+          <Route path="/seed-identify" element={<SeedIdentification />} />
 
           {/* Plant Health & Foliar Pathology */}
           <Route path="/health" element={<PlantHealth />} />

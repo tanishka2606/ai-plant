@@ -10,7 +10,7 @@ if backend_dir not in sys.path:
 
 from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 
@@ -146,7 +146,13 @@ def login_user(user_in: UserLogin, db: Session = Depends(get_db)):
 # -------------------------------------------------------------
 # 3. Plant Identification Endpoint
 # -------------------------------------------------------------
+@app.get("/upload-image")
+@app.get("/api/upload-image")
+async def plant_scanner_page_redirect():
+    return RedirectResponse(url="/scanner", status_code=302)
+
 @app.post("/upload-image")
+@app.post("/api/upload-image")
 async def scan_plant(file: UploadFile = File(...)):
     try:
         image_bytes = await file.read()
@@ -167,8 +173,22 @@ async def scan_plant(file: UploadFile = File(...)):
 # -------------------------------------------------------------
 # 4. Seed Identification Endpoint
 # -------------------------------------------------------------
+@app.get("/seed-identify")
+@app.get("/identify-seed")
+@app.get("/api/seed-identify")
+@app.get("/api/identify-seed")
+async def seed_identify_page_redirect():
+    """
+    Handles GET requests to seed identification routes.
+    Redirects browser navigation gracefully to the Seed Identification workspace
+    (/seed-identification) rather than returning 405 Method Not Allowed.
+    """
+    return RedirectResponse(url="/seed-identification", status_code=302)
+
 @app.post("/seed-identify")
 @app.post("/identify-seed")
+@app.post("/api/seed-identify")
+@app.post("/api/identify-seed")
 async def scan_seed(file: UploadFile = File(...)):
     try:
         image_bytes = await file.read()
@@ -189,7 +209,13 @@ async def scan_seed(file: UploadFile = File(...)):
 # -------------------------------------------------------------
 # 5. Plant Health & Disease Assessment Endpoint
 # -------------------------------------------------------------
+@app.get("/health-check")
+@app.get("/api/health-check")
+async def health_check_page_redirect():
+    return RedirectResponse(url="/health", status_code=302)
+
 @app.post("/health-check")
+@app.post("/api/health-check")
 async def plant_health(file: UploadFile = File(...)):
     try:
         image_bytes = await file.read()
@@ -228,6 +254,7 @@ def get_plant_care(plant_name: str, db: Session = Depends(get_db)):
 # 7. AI Plant Assistant Endpoint
 # -------------------------------------------------------------
 @app.post("/assistant")
+@app.post("/api/assistant")
 def assistant_chat(
     payload: AssistantRequest = None,
     question: str = None,

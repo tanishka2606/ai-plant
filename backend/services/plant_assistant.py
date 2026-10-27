@@ -316,6 +316,18 @@ def _generate_expert_fallback(
         ])
 
     # 11. Topic: Watering
+    if any(k in q for k in ["पाणी"]):
+        return (
+            "रोपांना पाणी देण्याचा योग्य नियम: नेहमी कुंडीतील वरची २ ते ३ सेंमी माती कोरडी झाली आहे का ते तपासा. "
+            "माती सुकली असेल तरच तळातील छिद्रांतून पाणी जाईपर्यंत भरपूर पाणी द्या. जास्त पाणी दिल्याने मुळे कुजतात (Root rot). "
+            "तुम्ही कोणत्या रोपाची काळजी घेत आहात?"
+        )
+    if any(k in q for k in ["पानी"]):
+        return (
+            "पौधों को पानी देने का सही नियम: हमेशा गमले की ऊपरी २-३ सेमी मिट्टी सूखने पर ही पानी दें। "
+            "गमले के निचले छेद से पानी निकलने तक अच्छी तरह सींचें। बहुत अधिक पानी देने से जड़ें सड़ सकती हैं। "
+            "आप किस पौधे के बारे में जानकारी चाहते हैं?"
+        )
     if any(k in ql for k in ["water", "watering", "how often", "thirsty", "hydrate"]):
         for sp_key, profile in SPECIES_PROFILES.items():
             if sp_key in p_clean:
@@ -332,6 +344,16 @@ def _generate_expert_fallback(
         )
 
     # 12. Topic: Sunlight
+    if any(k in q for k in ["सूर्यप्रकाश", "ऊन"]):
+        return (
+            "बहुतेक घरातील झाडांना थेट प्रखर उन्हाऐवजी भरपूर अप्रत्यक्ष सूर्यप्रकाश (Bright indirect sunlight) लागतो. "
+            "कडक उन्हामुळे पाने करपू शकतात. आपल्या झाडाचे नाव सांगा, जेणेकरून अचूक माहिती देता येईल."
+        )
+    if any(k in q for k in ["धूप", "सूरज"]):
+        return (
+            "अधिकतर इनडोर पौधों को सीधी धूप के बजाय अच्छी छनी हुई धूप (Bright indirect light) की आवश्यकता होती है। "
+            "अपने पौधे का नाम बताएं ताकि मैं सही धूप की जानकारी दे सकूँ।"
+        )
     if any(k in ql for k in ["sun", "sunlight", "light", "shade", "dark", "bright", "window"]):
         for sp_key, profile in SPECIES_PROFILES.items():
             if sp_key in p_clean:
@@ -349,6 +371,15 @@ def _generate_expert_fallback(
         )
 
     # 13. Topic: Soil & Repotting
+    if any(k in q for k in ["माती"]):
+        return (
+            "रोपांसाठी पाण्याचा निचरा होणारी (well-draining) माती वापरावी. मातीमध्ये कोकोपीट, कंपोस्ट खत आणि थोडी वाळू मिसळल्यास मुळे निरोगी राहतात. "
+            "आपण कोणत्या रोपासाठी माती तयार करत आहात?"
+        )
+    if any(k in q for k in ["मिट्टी"]):
+        return (
+            "पौधों के लिए अच्छी जल निकासी वाली (well-draining) मिट्टी का उपयोग करें। मिट्टी में कोकोपीट, वर्मीकम्पोस्ट और थोड़ी रेत मिलाने से जड़ें स्वस्थ रहती हैं।"
+        )
     if any(k in ql for k in ["soil", "potting", "dirt", "pot", "repot", "container"]):
         for sp_key, profile in SPECIES_PROFILES.items():
             if sp_key in p_clean:
@@ -364,6 +395,14 @@ def _generate_expert_fallback(
         )
 
     # 14. Topic: Fertilizer
+    if any(k in q for k in ["खत"]):
+        return (
+            "झाडांना वाढीच्या काळात (वसंत आणि उन्हाळा) दर महिन्याला सौम्य सेंद्रिय खत किंवा व्हर्मीकंपोस्ट द्यावे. सुप्तावस्थेत (हिवाळ्यात) खत देऊ नका."
+        )
+    if any(k in q for k in ["खाद"]):
+        return (
+            "पौधों को बढ़ते मौसम (गर्मी और वसंत) में महीने में एक बार संतुलित तरल खाद या वर्मीकम्पोस्ट दें। सर्दियों में खाद न दें।"
+        )
     if any(k in ql for k in ["fertilizer", "fertilize", "feed", "nutrients"]):
         return (
             f"Feed {p_label} with a balanced liquid houseplant fertilizer diluted to half strength once a month during spring and summer. "
@@ -385,6 +424,14 @@ def _generate_expert_fallback(
         )
 
     # 16. General plant question without a plant name
+    if any(k in q for k in ["झाड", "रोप", "वनस्पती"]):
+        return (
+            "मी तुमच्या झाडांच्या देखभालीसाठी मदत करू शकतो! वनस्पतींना पाणी, सूर्यप्रकाश, खत आणि माती याबद्दल मार्गदर्शन हवं असल्यास कृपया तुमच्या रोपाचे नाव सांगा."
+        )
+    if any(k in q for k in ["पौधा", "पौधे", "पेड़"]):
+        return (
+            "मैं आपके पौधों की देखभाल में मदद कर सकता हूँ! पानी, धूप, खाद या कीटों की समस्या के बारे में जानने के लिए कृपया अपने पौधे का नाम बताएं।"
+        )
     if any(k in ql for k in ["care", "plant", "grow", "houseplant", "indoor", "outdoor", "garden", "flower", "leaf", "leaves"]):
         return (
             "I would be glad to help! Plant care depends heavily on the specific plant species—for example, succulents need dry soil and full sun, "

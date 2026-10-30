@@ -108,3 +108,60 @@ def validate_and_preprocess_image(
     processed_bytes = output_buffer.getvalue()
 
     return True, processed_bytes, None, quality_warning
+
+
+def validate_botanical_image(
+    image_bytes: bytes,
+    filename: str = "image.jpg",
+    content_type: Optional[str] = None,
+    expected_subject: str = "plant",
+    max_size: int = 10 * 1024 * 1024
+) -> Tuple[bool, Optional[bytes], Optional[str], Optional[dict]]:
+    """
+    Comprehensive two-stage botanical image validator:
+    Stage 1: Structural & physical validation (size, MIME, decodability, resolution, lighting, sharpness).
+    Stage 2: Semantic, authenticity, and fake/invalid image detection via Google Gemini AI vision:
+             - Rejects unrelated subjects (people, animals, cars, buildings, electronics, food, objects).
+             - Rejects wrong botanical category (e.g. whole plant uploaded to seed identifier).
+             - Rejects AI-generated images, digital art, drawings, cartoons, sketches, screenshots.
+             - Treats borderline authenticity cautiously without declaring genuine photos fake.
+             - Provides clear, user-friendly rejection messages.
+
+    Returns:
+        (is_valid, processed_bytes, error_message, validation_metadata)
+    """
+    # 1. Structural physical validation
+    is_valid, processed_bytes, val_error, quality_warning = validate_and_preprocess_image(
+        image_bytes, filename, content_type, max_size=max_size
+    )
+    if not is_valid:
+        return False, None, val_error, None
+
+    # 2. Semantic & authenticity validation via Gemini AI
+    validation_meta = None
+    try:
+        from .gemini_service import validate_image_authenticity_and_subject
+        gemini_val = validate_image_authenticity_and_subject(processed_bytes, expected_subject=expected_subject)
+        if gemini_val and isinstance(gemini_val, dict):
+            validation_meta = gemini_val
+            # If the subject is invalid or artificial / AI-generated / drawing
+            if gemini_val.get("is_valid") is False:
+                rejection = gemini_val.get("rejection_reason")
+                if not rejection:
+                    auth = gemini_val.get("authenticity", "")
+                    if auth in ("likely_ai_generated", "digital_art_or_drawing"):
+                        rejection = "This image may be digitally generated, illustrated, or manipulated. Please upload an original photograph."
+                    elif gemini_val.get("is_blurry"):
+                        rejection = "The image is too blurry or out-of-focus to distinguish botanical features. Please upload a sharper photo."
+                    elif expected_subject == "seed":
+                        rejection = "This image does not appear to contain a seed. Please upload a clear seed photograph."
+                    else:
+                        rejection = "This image does not appear to contain a valid plant. Please upload a clear plant photograph."
+
+                return False, None, rejection, validation_meta
+    except Exception as e:
+        print("Semantic image validation note:", e)
+
+    # Valid image
+    return True, processed_bytes, None, validation_meta
+

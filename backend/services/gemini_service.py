@@ -67,6 +67,10 @@ def _call_gemini_api(payload: Dict[str, Any], timeout: int = 22) -> Optional[Dic
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
         try:
             resp = requests.post(url, json=payload, timeout=timeout)
+            if resp.status_code == 429:
+                import time
+                time.sleep(1.2)
+                resp = requests.post(url, json=payload, timeout=timeout)
             if resp.status_code == 200:
                 data = resp.json()
                 candidates = data.get("candidates", [])
@@ -196,7 +200,7 @@ def identify_plant(
         "- scientific_name (string: binomial botanical taxon Genus species)\n"
         "- genus (string: botanical genus)\n"
         "- family (string: botanical family)\n"
-        "- identifying_features (list of 2-4 strings describing visible morphological traits like leaf margin, shape, venation, floral structure)\n"
+        "- identifying_features (list of 2-3 short, simple everyday English bullet points describing visible traits that help identify this plant, e.g. 'It has five flat petals', 'Leaves are thick and shiny', 'A pale line runs through the center of each leaf'. Avoid complex botanical jargon.)\n"
         "- is_uncertain (bool: true if image is blurry or species cannot be determined definitively, else false)\n"
         "- uncertainty_note (string: note explaining uncertainty if applicable, else empty string)\n"
         "Do not fabricate species if visual evidence is ambiguous."
@@ -259,7 +263,7 @@ def identify_seed(
         "   - transplanting: Clear guidance on when and how to transplant into a larger pot or garden (e.g., sunflowers prefer direct sowing due to sensitive taproots; papayas transplant at 15-20 cm).\n"
         "6. TEMPERATURE RULE: Express ALL temperatures strictly in Celsius (°C), e.g. '20°C to 25°C'. NEVER mention Fahrenheit (°F), not even in parentheses.\n"
         "7. CONCISENESS RULE: Use simple English. Keep each subsection strictly concise—preferably 1 to 2 short sentences per subsection. Do NOT write long paragraphs.\n"
-        "8. If the image is blurry, out-of-focus, or visually ambiguous, set is_uncertain to true and describe what is unclear.\n\n"
+        "8. If the image is blurry, out-of-focus, or does NOT clearly depict a seed/grain/pit/pod (for example if it depicts a whole leafy plant, flower, fruit without visible seeds, person, animal, or unrelated object), set is_uncertain to true and explain that in uncertainty_note.\n\n"
         "Output strictly a JSON object with keys:\n"
         "- common_name (string: popular English name of the seed/plant)\n"
         "- scientific_name (string: botanical binomial name)\n"
@@ -403,3 +407,144 @@ def ask_plant_assistant(
         return None
 
     return result.get("text", "").strip()
+
+# =====================================================================
+# 6. BOTANICAL IMAGE AUTHENTICITY & SUBJECT VALIDATION
+# =====================================================================
+def validate_image_authenticity_and_subject(
+    image_bytes: bytes,
+    expected_subject: str = "plant"
+) -> Optional[Dict[str, Any]]:
+    """
+    Validates uploaded images before identification:
+    1. Checks subject validity: authentic living plant vs seed vs unrelated (person, animal, car, etc.)
+    2. Detects AI-generated images, digital art, drawings, cartoons, or 3D renders.
+    3. Handles uncertainty cautiously without declaring borderline authentic photos fake.
+    4. Detects blurry or unidentifiable subjects.
+    """
+    if not image_bytes or len(image_bytes) == 0:
+        return {
+            "is_valid": False,
+            "detected_subject": "empty",
+            "subject_type": "none",
+            "authenticity": "uncertain",
+            "rejection_reason": "The uploaded image file is empty."
+        }
+
+    opt_bytes = _optimize_image_for_gemini(image_bytes, max_dim=512)
+    b64_image = base64.b64encode(opt_bytes).decode("utf-8")
+
+    prompt = f"""
+You are an expert botanical image validation and authenticity assessment system.
+The user uploaded an image for '{expected_subject}' identification (expected subject: {expected_subject}).
+
+Analyze the image carefully for:
+1. SUBJECT VALIDITY:
+   - If expected_subject is 'plant': Does the image genuinely contain a real botanical plant, flower, leaf, foliage, stem, tree, or succulent? If it depicts a person, animal, vehicle, building, food dish, electronic device, furniture, or other unrelated objects, is_valid must be false.
+   - If expected_subject is 'seed': Does the image genuinely contain botanical seeds, grains, pits, nuts, kernels, or seed pods? If it depicts a whole leafy plant without seeds, fruit without visible seeds, person, animal, artificial beads, pebbles, or unrelated objects, is_valid must be false.
+2. AUTHENTICITY & IMAGE INTEGRITY:
+   - Check if the image appears to be an authentic photograph taken by a camera.
+   - Check if the image appears to be AI-generated (e.g. synthetic textures, unnatural digital smoothness, hallucinated morphology), a digital illustration, cartoon, sketch, drawing, screenshot, or heavily manipulated artwork.
+   - CRITICAL RULE: Do NOT claim AI-generated detection is 100% accurate. If authenticity cannot be determined reliably, set authenticity to 'uncertain' and do NOT declare it fake unless clear signs of illustration, cartoon, or generative artifacts exist.
+3. SUITABILITY:
+   - Check if the image is extremely blurry, out-of-focus, or lacks the actual subject needed for identification.
+
+Return strictly a valid JSON object with keys:
+- is_valid (bool: true ONLY if it is an authentic photo containing the expected subject)
+- detected_subject (string: short description of what is in the image, e.g. 'cactus plant', 'cartoon car drawing', 'human face')
+- subject_type (string: 'plant' | 'seed' | 'animal' | 'person' | 'vehicle' | 'object' | 'drawing' | 'other')
+- authenticity (string: 'authentic_photo' | 'likely_ai_generated' | 'digital_art_or_drawing' | 'uncertain')
+- is_blurry (bool: true if too blurry to identify, else false)
+- rejection_reason (string: clear, polite user-facing error message if is_valid is false, otherwise empty string).
+  Example rejection reasons:
+  - If unrelated to plant: "This image does not appear to contain a valid plant. Please upload a clear plant photograph."
+  - If unrelated to seed: "This image does not appear to contain a seed. Please upload a clear seed photograph."
+  - If AI-generated or digital art/drawing: "This image may be digitally generated, illustrated, or manipulated. Please upload an original photograph."
+  - If blurry: "The image is too blurry or out-of-focus to distinguish botanical features. Please upload a sharper photo."
+"""
+
+    payload = {
+        "contents": [{
+            "parts": [
+                {"text": prompt},
+                {"inline_data": {"mime_type": "image/jpeg", "data": b64_image}}
+            ]
+        }],
+        "generationConfig": {
+            "temperature": 0.1,
+            "response_mime_type": "application/json"
+        }
+    }
+
+    result = _call_gemini_api(payload, timeout=18)
+    if not result:
+        return None
+
+    return _extract_json(result["text"])
+
+# =====================================================================
+# 7. PLANT & SEED USES AND BENEFITS GENERATION
+# =====================================================================
+def generate_uses_and_benefits(
+    name: str,
+    scientific_name: str,
+    item_type: str = "plant"
+) -> Optional[Dict[str, Any]]:
+    """
+    Generates short, simple, everyday English uses and benefits for an identified plant or seed.
+    Strictly omits undocumented or unverified categories. Never invents medicinal claims.
+    """
+    if not name and not scientific_name:
+        return None
+
+    if item_type == "plant":
+        prompt = f"""
+Provide simple, short, easy-to-understand uses and benefits for the plant '{name}' (scientific name: '{scientific_name}').
+
+STRICT RULES:
+1. Use simple everyday English and short sentences (under 15 words each).
+2. Avoid lengthy explanations and complicated botanical or medical jargon.
+3. Show only 1-2 useful bullet points per category.
+4. Only include categories with reliable information. If a plant has no scientifically supported health benefits (or is toxic/inedible), omit health_benefits completely (set to empty list []).
+5. Do NOT return placeholders like 'None' or 'No benefits available'.
+
+Return strictly a valid JSON object with keys:
+- common_uses: list of 1-2 short strings (e.g. 'Grown in gardens for its beautiful flowers.')
+- health_benefits: list of 1-2 short strings (ONLY if scientifically supported, e.g. 'Contains compounds used in certain medicines.'; otherwise empty [])
+- environmental_benefits: list of 1-2 short strings (e.g. 'Its flowers provide nectar for butterflies.')
+- practical_uses: list of 1-2 short strings (e.g. 'Needs very little water and thrives in warm spots.')
+"""
+    else:
+        prompt = f"""
+Provide simple, short, easy-to-understand uses and benefits for the seed of '{name}' (scientific name: '{scientific_name}').
+
+STRICT RULES:
+1. Use simple everyday English and short sentences (under 15 words each).
+2. Avoid complicated terminology or lengthy paragraphs.
+3. Show only 1-2 useful bullet points per category.
+4. Do NOT add identification confidence or match scores.
+5. If the seed is inedible or lacks established nutritional value, set nutritional_benefits to empty [].
+6. If a category is not supported, set it to empty []. Do NOT return 'None'.
+
+Return strictly a valid JSON object with keys:
+- common_uses: list of 1-2 short strings (e.g. 'Eaten raw or roasted as a crunchy snack.')
+- nutritional_benefits: list of 1-2 short strings (e.g. 'Rich in Vitamin E and healthy fats.')
+- health_benefits: list of 1-2 short strings (e.g. 'Healthy fats support heart wellness.')
+- environmental_benefits: list of 1-2 short strings (e.g. 'Sunflower plants attract pollinating bees.')
+- practical_uses: list of 1-2 short strings (e.g. 'Can be sprouted for fresh microgreens.')
+"""
+
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "temperature": 0.1,
+            "response_mime_type": "application/json"
+        }
+    }
+
+    result = _call_gemini_api(payload, timeout=22)
+    if not result:
+        return None
+
+    return _extract_json(result["text"])
+

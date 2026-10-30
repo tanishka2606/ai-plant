@@ -110,6 +110,29 @@
   line-height: 1.55;
 }
 
+.key-features-card {
+  background: #f0fdf4;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.key-features-card .seed-section-title {
+  color: var(--forest-900, #064e3b);
+}
+
+.seed-features-list {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.seed-features-list li {
+  font-size: 13.5px;
+  color: #374151;
+  line-height: 1.5;
+}
+
 .seed-guide-grid {
   display: flex;
   flex-direction: column;
@@ -136,3 +159,79 @@
   color: #1f2937;
   line-height: 1.5;
 }
+
+/* =====================================================================
+   SEED USES AND BENEFITS SECTION
+   ===================================================================== */
+.seed-uses-benefits-card {
+  background: #ffffff;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+}
+
+.seed-uses-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.seed-use-item {
+  background: #f8fafc;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 8px);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.seed-use-item:hover {
+  background: #f0fdf4;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.seed-use-item-full {
+  grid-column: 1 / -1;
+}
+
+.seed-use-item-nutrition {
+  background: #f0fdf4;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.seed-use-item-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.seed-use-item-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--forest-900, #064e3b);
+}
+
+.seed-use-bullet-list {
+  margin: 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.seed-use-bullet-list li {
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.45;
+}
+
+@media (max-width: 680px) {
+  .seed-uses-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

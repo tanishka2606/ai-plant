@@ -2,8 +2,9 @@ import os
 import requests
 from dotenv import load_dotenv
 from typing import Dict, Any, List, Optional
-from .image_validator import validate_and_preprocess_image
+from .image_validator import validate_and_preprocess_image, validate_botanical_image
 from .gemini_service import identify_plant as gemini_identify_plant
+from .uses_and_benefits import get_plant_uses_and_benefits
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DOTENV_PATH = os.path.join(BASE_DIR, ".env")
@@ -14,126 +15,141 @@ KINDWISE_API_KEY = os.getenv("KINDWISE_API_KEY")
 CONFIDENCE_THRESHOLD = float(os.getenv("IDENTIFICATION_CONFIDENCE_THRESHOLD", "0.50"))
 MAX_UPLOAD_SIZE = int(os.getenv("MAX_UPLOAD_SIZE", str(10 * 1024 * 1024)))
 
-# Curated, reliable botanical characteristics by species/genus
+# Curated, reliable botanical characteristics by species/genus in simple, everyday English
 BOTANICAL_TRAITS_DB: Dict[str, List[str]] = {
-    # Species-level documented traits
+    "catharanthus roseus": [
+        "Flowers have five flat petals with a small colored eye in the center.",
+        "Leaves are smooth, shiny green with rounded tips.",
+        "A visible pale line runs through the middle of each leaf."
+    ],
+    "vinca": [
+        "Flowers have five flat petals with a small colored eye in the center.",
+        "Leaves are smooth, shiny green with rounded tips.",
+        "A visible pale line runs through the middle of each leaf."
+    ],
+    "opuntia microdasys": [
+        "Flat, rounded green pads shaped like rabbit ears.",
+        "Covered with dense clusters of tiny golden bristles.",
+        "Thick succulent pads that store water."
+    ],
+    "cactaceae": [
+        "Thick, fleshy green stems that store water.",
+        "Sharp protective spines instead of normal flat leaves.",
+        "Waxy outer surface to prevent water loss."
+    ],
     "epipremnum aureum": [
-        "Leaf shape: Heart-shaped (cordate) leaves with pointed tips and smooth margins",
-        "Leaf color: Glossy bright green, frequently marbled with creamy-gold or light green variegation",
-        "Growth habit: Flexible trailing or climbing vine with aerial rootlets at leaf nodes"
+        "Heart-shaped leaves with pointed tips.",
+        "Shiny green leaves splashed with yellow or cream patches.",
+        "Long, flexible trailing vine that easily climbs or hangs."
     ],
     "dracaena trifasciata": [
-        "Leaf shape: Stiff, upright sword-like fleshy leaves tapering to a sharp point",
-        "Leaf color: Deep green marked with gray-green horizontal zig-zag bands, often bordered with yellow margins",
-        "Growth habit: Upright clumping rosette growing directly from underground rhizomes"
+        "Tall, upright sword-shaped leaves that stand stiff.",
+        "Dark green leaves patterned with light wavy bands.",
+        "Bright yellow borders often run along the outer edges."
     ],
     "sansevieria trifasciata": [
-        "Leaf shape: Stiff, upright sword-like fleshy leaves tapering to a sharp point",
-        "Leaf color: Deep green marked with gray-green horizontal zig-zag bands, often bordered with yellow margins",
-        "Growth habit: Upright clumping rosette growing directly from underground rhizomes"
+        "Tall, upright sword-shaped leaves that stand stiff.",
+        "Dark green leaves patterned with light wavy bands.",
+        "Bright yellow borders often run along the outer edges."
     ],
     "monstera deliciosa": [
-        "Leaf shape: Large, glossy heart-shaped to ovate leaves that develop natural holes (fenestrations) and deep edge splits",
-        "Leaf color: Deep, lustrous forest green surface with prominent pale veins",
-        "Stem features: Thick, sturdy climbing stems supported by cord-like aerial adventitious roots"
+        "Large, glossy green leaves with natural splits and holes.",
+        "Thick stems that grow long brown climbing air roots."
     ],
     "spathiphyllum": [
-        "Leaf shape: Glossy, deep green lanceolate to elliptical leaves with prominent indented veins",
-        "Flower structure: Showy white hood-like spathe sheltering an erect central creamy-white spadix spike",
-        "Growth habit: Stemless evergreen perennial foliage rising directly from the root crown"
+        "Dark green, glossy leaves with noticeable indented veins.",
+        "Erect white flower with a single curved petal-like hood.",
+        "Cream-colored textured spike standing in the center of the bloom."
     ],
     "chlorophytum comosum": [
-        "Leaf shape: Long, slender, arching ribbon-like leaves tapering to fine pointed tips",
-        "Leaf color: Bright green foliage, typically featuring a broad central creamy-white stripe",
-        "Growth habit: Fountain-like clumping rosette producing long wiry stolons that bear miniature plantlets"
+        "Long, slender arching leaves with green and cream stripes.",
+        "Produces thin stems carrying miniature baby plants."
     ],
     "ficus elastica": [
-        "Leaf shape: Broadly elliptical, thick, leathery leaves with a prominent central midrib",
-        "Leaf color: Glossy dark green or burgundy, with newly emerging leaves enclosed in a red-tinted sheath",
-        "Stem features: Robust woody trunk and branches that secrete milky latex sap when cut"
+        "Large, thick leathery leaves with a deep glossy shine.",
+        "A prominent main line runs straight down the middle of each leaf.",
+        "New leaves unfold from a reddish pointed sheath."
     ],
     "ficus lyrata": [
-        "Leaf shape: Large, dramatic fiddle- or lyre-shaped leaves with wavy margins and sunken veins",
-        "Leaf texture: Thick, rigid, leathery surface with a bold sculptural vein pattern",
-        "Growth habit: Upright woody tree with broad, architectural foliage"
+        "Large leaves shaped like a violin or fiddle with wavy edges.",
+        "Thick, leathery leaf surface with bold pale veins."
     ],
     "ficus benjamina": [
-        "Leaf shape: Small, pointed oval leaves with a distinct slender drip tip",
-        "Growth habit: Graceful drooping or weeping branches forming a dense evergreen canopy",
-        "Bark features: Smooth light-gray bark with fine slender branching twigs"
+        "Small, glossy pointed oval leaves.",
+        "Graceful drooping branches forming a leafy indoor tree."
     ],
     "aloe vera": [
-        "Leaf shape: Thick, fleshy, sword-shaped succulent leaves with soft whitish teeth along the margins",
-        "Leaf color: Gray-green to pea-green arranged in a tight stemless rosette",
-        "Leaf interior: Packed with clear, soothing mucilaginous water-storing gel"
+        "Thick, fleshy green leaves growing in a tight rosette.",
+        "Small, soft teeth line the outer edges of the leaves.",
+        "Leaves are plump and filled with clear cooling gel."
     ],
     "zamioculcas zamiifolia": [
-        "Leaf structure: Pinnately compound upright stems lined with thick, shiny, oval leaflets",
-        "Leaf texture: Smooth, waxy, highly polished dark green finish",
-        "Stem features: Swollen, bulbous petiole bases adapted to store water against drought"
+        "Upright stems lined with thick, shiny oval leaflets.",
+        "Very glossy dark green leaves that look naturally polished.",
+        "Swollen bulb-like stem bases that store water."
     ],
     "crassula ovata": [
-        "Leaf shape: Smooth, fleshy, oval jade-green leaves, frequently with red-tinged margins in bright sunlight",
-        "Growth habit: Compact succulent shrub with thick, woody branching stems resembling a miniature tree"
+        "Plump, smooth oval green leaves resembling smooth jade stones.",
+        "Thick woody stems that branch like a miniature tree."
     ],
     "ocimum tenuiflorum": [
-        "Leaf shape: Ovate, slightly serrated green or purplish leaves with aromatic glandular hairs",
-        "Stem features: Square-angled stems with opposite paired leaf arrangement",
-        "Flower structure: Small tubular purple or white flowers clustered along erect terminal spikes"
+        "Small oval leaves with a strong, pleasant herbal scent.",
+        "Four-sided square stems with leaves growing opposite each other.",
+        "Tiny purple or white flowers on upright tips."
+    ],
+    "ocimum sanctum": [
+        "Small oval leaves with a strong, pleasant herbal scent.",
+        "Four-sided square stems with leaves growing opposite each other.",
+        "Tiny purple or white flowers on upright tips."
     ],
     "ocimum basilicum": [
-        "Leaf shape: Broadly oval, bright green leaves with cupped or smooth surfaces",
-        "Stem features: Four-sided square stems with opposite leaf arrangement",
-        "Aroma: Distinct sweet, peppery fragrance produced by microscopic surface oil glands"
+        "Bright green, gently cupped leaves with a sweet peppery fragrance.",
+        "Square stems with paired leaves."
     ],
     "hibiscus rosa-sinensis": [
-        "Leaf shape: Glossy, dark green ovate leaves with coarsely serrated edges",
-        "Flower structure: Large, 5-petaled flared blossoms with a long, prominent protruding staminal column"
+        "Glossy dark green leaves with saw-tooth edges.",
+        "Large bell-shaped flowers with a long column in the middle."
     ],
     "rosa": [
-        "Leaf shape: Odd-pinnately compound leaves typically composed of 3 to 7 serrated oval leaflets",
-        "Stem features: Tough woody stems armed with sharp prickles or thorns",
-        "Flower structure: Showy multi-petaled fragrant flowers with distinct basal sepals"
+        "Leaves made of 3 to 7 small toothed leaflets.",
+        "Stems armed with sharp protective thorns.",
+        "Showy, multi-petaled fragrant blossoms."
     ],
     "helianthus annuus": [
-        "Leaf shape: Broad, heart-shaped to ovate leaves with coarse, rough hairy surfaces and serrated edges",
-        "Flower structure: Large composite head with outer golden-yellow ray petals and a dark central disc",
-        "Stem features: Thick, erect, rough-textured fibrous stalk"
+        "Large rough heart-shaped leaves on a thick hairy stalk.",
+        "Bright yellow outer petals surrounding a dark brown seed center."
     ],
     "carica papaya": [
-        "Leaf shape: Very large, deeply palmately lobed leaves (5 to 7 lobes) with prominent whitish veins",
-        "Stem features: Single straight hollow trunk with prominent leaf scar marks and a crown of leaves"
+        "Very large leaves deeply divided into 5 to 7 finger-like lobes.",
+        "Single straight trunk with distinct round leaf scars."
     ],
     "mangifera indica": [
-        "Leaf shape: Long, narrow lanceolate leathery leaves with wavy margins, emerging reddish-bronze before maturing deep green",
-        "Growth habit: Dense evergreen dome canopy with alternate, spirally clustered foliage"
+        "Long, narrow leathery leaves with slightly wavy edges.",
+        "New leaves start reddish-bronze before maturing deep green."
     ],
     "calathea": [
-        "Leaf shape: Broadly elliptical leaves with intricate feather-like patterns on the upper surface",
-        "Leaf color: Deep green patterns with rich burgundy or purple undersides",
-        "Leaf behavior: Leaves fold upward at night following natural circadian rhythms"
+        "Oval leaves with striking dark and light green patterns.",
+        "Rich purple or reddish-maroon color on the underside of leaves."
     ],
     "peperomia": [
-        "Leaf shape: Compact, thick, semi-succulent leaves often rounded or spoon-shaped",
-        "Flower structure: Slender, greenish-white tail-like flower spikes lacking showy petals"
+        "Small, thick spoon-shaped leaves with a waxy texture.",
+        "Slender tail-like flower spikes."
     ],
     "philodendron": [
-        "Leaf shape: Glossy cordate or deeply lobed foliage with distinct drip tips",
-        "Growth habit: Climbing or trailing vine with aerial rootlets at nodes"
+        "Glossy heart-shaped leaves with pointed tips.",
+        "Trailing vine with small climbing roots at leaf joints."
     ],
     "dieffenbachia": [
-        "Leaf shape: Large, broad, oblong-ovate leaves with pointed tips",
-        "Leaf color: Variegated with prominent cream, white, or pale yellow speckles and green borders",
-        "Stem features: Thick, cane-like fleshy stems"
+        "Broad oval leaves decorated with creamy white and yellow spots.",
+        "Thick, fleshy cane-like stems."
     ],
     "aglaonema": [
-        "Leaf shape: Broad, lance-shaped leaves with elegant tapering tips",
-        "Leaf color: Distinct silvery, gray-green, or pink marbling along the veins",
-        "Growth habit: Low-growing compact clumping foliage"
+        "Broad lance-shaped leaves with silver, light green, or pink patterns.",
+        "Compact bushy growth habit."
     ],
     "syngonium podophyllum": [
-        "Leaf shape: Distinct arrow-shaped (sagittate) juvenile leaves that become multi-lobed as the plant matures",
-        "Growth habit: Trailing or climbing vine with adventitious aerial roots"
+        "Distinct arrow-shaped leaves with pointed lobes.",
+        "Climbing or trailing green stems."
     ]
 }
 
@@ -230,17 +246,19 @@ def identify_plant(image_bytes: bytes, filename: str, content_type: str) -> Dict
     4. Google Gemini Vision for taxonomic verification and visible morphological features
     5. Strict confidence evaluation against threshold
     """
-    # 1. Validation & Preprocessing
-    is_valid, processed_bytes, val_error, quality_warning = validate_and_preprocess_image(
-        image_bytes, filename, content_type, max_size=MAX_UPLOAD_SIZE
+    # 1. Validation & Preprocessing (Physical integrity + Subject & Fake/Invalid Detection)
+    is_valid, processed_bytes, val_error, val_meta = validate_botanical_image(
+        image_bytes, filename, content_type, expected_subject="plant", max_size=MAX_UPLOAD_SIZE
     )
     if not is_valid:
         return {
             "success": False,
             "status": "validation_error",
-            "message": val_error or "Invalid image file.",
+            "message": val_error or "This image does not appear to contain a valid plant. Please upload a clear plant photograph.",
             "data": None
         }
+
+    quality_warning = val_meta.get("quality_warning") if val_meta else None
 
     best_match = None
     candidates: List[Dict[str, Any]] = []
@@ -380,6 +398,12 @@ def identify_plant(image_bytes: bytes, filename: str, content_type: str) -> Dict
     confidence = best_match["confidence"]
     confidence_pct = best_match["confidence_percent"]
 
+    # 8. Fetch evidence-based Uses and Benefits
+    uses_and_benefits = get_plant_uses_and_benefits(
+        best_match["scientific_name"],
+        best_match.get("common_name", "")
+    )
+
     result_data = {
         "plant_name": best_match["scientific_name"],
         "common_name": best_match["common_name"],
@@ -393,6 +417,7 @@ def identify_plant(image_bytes: bytes, filename: str, content_type: str) -> Dict
         "characteristics": identifying_features,
         "uncertainty_note": uncertainty_note,
         "candidates": candidates,
+        "uses_and_benefits": uses_and_benefits,
         "image_quality": quality_warning or "Good"
     }
 
@@ -401,12 +426,14 @@ def identify_plant(image_bytes: bytes, filename: str, content_type: str) -> Dict
             "success": False,
             "status": "low_confidence",
             "message": uncertainty_note or "Unable to confidently identify this image. Please upload a clear image showing the complete plant or important identifying features.",
-            "data": result_data
+            "data": result_data,
+            "uses_and_benefits": uses_and_benefits
         }
 
     return {
         "success": True,
         "status": "identified",
         "message": f"Identified as {best_match['common_name']} ({best_match['scientific_name']})",
-        "data": result_data
+        "data": result_data,
+        "uses_and_benefits": uses_and_benefits
     }

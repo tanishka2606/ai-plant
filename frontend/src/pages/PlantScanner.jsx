@@ -14,7 +14,11 @@ import {
   RotateCcw,
   ArrowRight,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Heart,
+  Globe,
+  Leaf,
+  HeartPulse
 } from "lucide-react";
 import { uploadPlant } from "../services/api";
 import "./PlantScanner.css";
@@ -85,8 +89,8 @@ function PlantScanner() {
     try {
       const response = await uploadPlant(selectedFile);
       setResult(response);
-      if (!response.success && response.status === "error") {
-        setErrorMsg(response.message || "Failed to identify plant.");
+      if (!response.success) {
+        setErrorMsg(response.message || "Failed to identify plant. Please upload a clear photo.");
       }
     } catch (err) {
       console.error("Plant identification error:", err);
@@ -103,6 +107,20 @@ function PlantScanner() {
   const plantData = result?.data;
   const isIdentified = result?.success && result?.status === "identified";
   const isLowConfidence = result?.status === "low_confidence";
+
+  // Uses and Benefits extraction
+  const usesAndBenefits = plantData?.uses_and_benefits || result?.uses_and_benefits;
+  const hasAnyUses = Boolean(
+    usesAndBenefits && (
+      (usesAndBenefits.common_uses && usesAndBenefits.common_uses.length > 0) ||
+      (usesAndBenefits.health_benefits && usesAndBenefits.health_benefits.length > 0) ||
+      (usesAndBenefits.environmental_benefits && usesAndBenefits.environmental_benefits.length > 0) ||
+      (usesAndBenefits.practical_uses && usesAndBenefits.practical_uses.length > 0) ||
+      (usesAndBenefits.practical_applications && usesAndBenefits.practical_applications.length > 0) ||
+      (usesAndBenefits.medicinal_uses && usesAndBenefits.medicinal_uses.length > 0) ||
+      (usesAndBenefits.human_health_benefits && usesAndBenefits.human_health_benefits.length > 0)
+    )
+  );
 
   // Visible characteristics for "Why This Plant?"
   const whyThisPlantFeatures = 
@@ -389,21 +407,93 @@ function PlantScanner() {
                   )}
                 </div>
 
-                {/* Section 2: Why This Plant? */}
+                {/* Section 2: Key Identification Features */}
                 {whyThisPlantFeatures.length > 0 && (
                   <div className="why-this-plant-card">
                     <div className="why-this-plant-header">
                       <Sparkles size={16} className="why-icon" />
-                      <h4 className="why-this-plant-title">Why This Plant?</h4>
+                      <h4 className="why-this-plant-title">Key Identification Features</h4>
                     </div>
                     <p className="why-this-plant-subtitle">
-                      Visible characteristics that support this identification:
+                      Visible characteristics that helped identify this plant:
                     </p>
                     <ul className="why-this-plant-list">
                       {whyThisPlantFeatures.map((trait, tIdx) => (
                         <li key={tIdx}>{trait}</li>
                       ))}
                     </ul>
+                  </div>
+                )}
+
+                {/* Section 2b: Uses and Benefits (Simple & Evidence-Supported) */}
+                {hasAnyUses && (
+                  <div className="uses-benefits-card">
+                    <div className="uses-benefits-header">
+                      <Leaf size={18} className="text-emerald" />
+                      <h4 className="uses-benefits-title">Uses and Benefits</h4>
+                    </div>
+
+                    <div className="uses-benefits-grid">
+                      {/* Common Uses */}
+                      {usesAndBenefits.common_uses?.length > 0 && (
+                        <div className="benefit-subcard">
+                          <div className="benefit-subcard-title">
+                            <Sparkles size={14} className="text-emerald" />
+                            <span>Common Uses</span>
+                          </div>
+                          <ul className="benefit-bullet-list">
+                            {usesAndBenefits.common_uses.map((item, idx) => (
+                              <li key={idx}>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Health Benefits (Only shown if scientifically supported) */}
+                      {((usesAndBenefits.health_benefits?.length > 0) || (usesAndBenefits.medicinal_uses?.length > 0) || (usesAndBenefits.human_health_benefits?.length > 0)) && (
+                        <div className="benefit-subcard">
+                          <div className="benefit-subcard-title">
+                            <HeartPulse size={14} className="text-emerald" />
+                            <span>Health Benefits</span>
+                          </div>
+                          <ul className="benefit-bullet-list">
+                            {(usesAndBenefits.health_benefits || usesAndBenefits.medicinal_uses || usesAndBenefits.human_health_benefits).map((item, idx) => (
+                              <li key={idx}>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Environmental Benefits */}
+                      {usesAndBenefits.environmental_benefits?.length > 0 && (
+                        <div className="benefit-subcard">
+                          <div className="benefit-subcard-title">
+                            <Globe size={14} className="text-emerald" />
+                            <span>Environmental Benefits</span>
+                          </div>
+                          <ul className="benefit-bullet-list">
+                            {usesAndBenefits.environmental_benefits.map((item, idx) => (
+                              <li key={idx}>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Other Practical Uses */}
+                      {((usesAndBenefits.practical_uses?.length > 0) || (usesAndBenefits.practical_applications?.length > 0)) && (
+                        <div className="benefit-subcard">
+                          <div className="benefit-subcard-title">
+                            <CheckCircle2 size={14} className="text-emerald" />
+                            <span>Other Practical Uses</span>
+                          </div>
+                          <ul className="benefit-bullet-list">
+                            {(usesAndBenefits.practical_uses || usesAndBenefits.practical_applications).map((item, idx) => (
+                              <li key={idx}>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 

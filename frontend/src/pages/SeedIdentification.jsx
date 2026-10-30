@@ -6,7 +6,11 @@ import {
   AlertTriangle, 
   RotateCcw, 
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Heart,
+  Globe,
+  CheckCircle2,
+  Apple
 } from "lucide-react";
 
 const F_UNIT = "[°\\u00b0]?\\s*(?:Fahrenheit|F)\\b";
@@ -124,6 +128,20 @@ function SeedIdentification() {
   const seedData = result?.data || result;
   const isIdentified = Boolean(result?.success && (result?.status === "identified" || result?.seed_name));
   const isLowConfidence = result?.status === "low_confidence" || result?.status === "uncertain";
+
+  // Uses and Benefits extraction
+  const usesAndBenefits = seedData?.uses_and_benefits || result?.uses_and_benefits;
+  const hasAnyUses = Boolean(
+    usesAndBenefits && (
+      (usesAndBenefits.common_uses && usesAndBenefits.common_uses.length > 0) ||
+      (usesAndBenefits.nutritional_benefits && usesAndBenefits.nutritional_benefits.length > 0) ||
+      (usesAndBenefits.nutritional_value && usesAndBenefits.nutritional_value.length > 0) ||
+      (usesAndBenefits.health_benefits && usesAndBenefits.health_benefits.length > 0) ||
+      (usesAndBenefits.environmental_benefits && usesAndBenefits.environmental_benefits.length > 0) ||
+      (usesAndBenefits.practical_uses && usesAndBenefits.practical_uses.length > 0) ||
+      (usesAndBenefits.practical_applications && usesAndBenefits.practical_applications.length > 0)
+    )
+  );
 
   return (
     <div className="page-container">
@@ -361,6 +379,27 @@ function SeedIdentification() {
                     </div>
                   </div>
 
+                  {/* Key Identification Features */}
+                  {(seedData.seed_morphology || seedData.identifying_features || seedData.characteristics) && (
+                    <div className="seed-section-card key-features-card">
+                      <div className="seed-section-header">
+                        <Sparkles size={16} className="text-emerald" />
+                        <span className="seed-section-title">Key Identification Features</span>
+                      </div>
+                      {Array.isArray(seedData.identifying_features || seedData.characteristics) ? (
+                        <ul className="seed-features-list">
+                          {(seedData.identifying_features || seedData.characteristics).map((item, idx) => (
+                            <li key={idx}>{item}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="seed-section-text">
+                          {seedData.seed_morphology || seedData.identifying_features || seedData.characteristics}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   {/* Germination Guide */}
                   {seedData.germination_guide && (
                     <div className="seed-section-card germination-card">
@@ -438,6 +477,93 @@ function SeedIdentification() {
                       ) : (
                         <p className="seed-section-text">{sanitizeCelsius(seedData.growing_instructions)}</p>
                       )}
+                    </div>
+                  )}
+
+                  {/* Seed Uses and Benefits Section */}
+                  {hasAnyUses && (
+                    <div className="seed-section-card seed-uses-benefits-card">
+                      <div className="seed-section-header">
+                        <Sparkles size={16} className="text-emerald" />
+                        <span className="seed-section-title">Uses and Benefits</span>
+                      </div>
+
+                      <div className="seed-uses-grid">
+                        {/* 1. Common Uses */}
+                        {usesAndBenefits.common_uses?.length > 0 && (
+                          <div className="seed-use-item">
+                            <div className="seed-use-item-header">
+                              <Sparkles size={14} className="text-emerald" />
+                              <span className="seed-use-item-title">Common Uses</span>
+                            </div>
+                            <ul className="seed-use-bullet-list">
+                              {usesAndBenefits.common_uses.map((item, idx) => (
+                                <li key={idx}>{item}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* 2. Nutritional Benefits */}
+                        {((usesAndBenefits.nutritional_benefits?.length > 0) || (usesAndBenefits.nutritional_value?.length > 0)) && (
+                          <div className="seed-use-item seed-use-item-nutrition">
+                            <div className="seed-use-item-header">
+                              <Apple size={14} className="text-emerald" />
+                              <span className="seed-use-item-title">Nutritional Benefits</span>
+                            </div>
+                            <ul className="seed-use-bullet-list">
+                              {(usesAndBenefits.nutritional_benefits || usesAndBenefits.nutritional_value).map((item, idx) => (
+                                <li key={idx}>{item}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* 3. Health Benefits */}
+                        {usesAndBenefits.health_benefits?.length > 0 && (
+                          <div className="seed-use-item">
+                            <div className="seed-use-item-header">
+                              <Heart size={14} className="text-emerald" />
+                              <span className="seed-use-item-title">Health Benefits</span>
+                            </div>
+                            <ul className="seed-use-bullet-list">
+                              {usesAndBenefits.health_benefits.map((item, idx) => (
+                                <li key={idx}>{item}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* 4. Environmental Benefits */}
+                        {usesAndBenefits.environmental_benefits?.length > 0 && (
+                          <div className="seed-use-item">
+                            <div className="seed-use-item-header">
+                              <Globe size={14} className="text-emerald" />
+                              <span className="seed-use-item-title">Environmental Benefits</span>
+                            </div>
+                            <ul className="seed-use-bullet-list">
+                              {usesAndBenefits.environmental_benefits.map((item, idx) => (
+                                <li key={idx}>{item}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* 5. Other Practical Uses */}
+                        {((usesAndBenefits.practical_uses?.length > 0) || (usesAndBenefits.practical_applications?.length > 0)) && (
+                          <div className="seed-use-item seed-use-item-full">
+                            <div className="seed-use-item-header">
+                              <CheckCircle2 size={14} className="text-emerald" />
+                              <span className="seed-use-item-title">Other Practical Uses</span>
+                            </div>
+                            <ul className="seed-use-bullet-list">
+                              {(usesAndBenefits.practical_uses || usesAndBenefits.practical_applications).map((item, idx) => (
+                                <li key={idx}>{item}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

@@ -8,7 +8,8 @@ from PIL import Image, ImageOps, ImageFilter, ImageStat
 from dotenv import load_dotenv
 from typing import Dict, Any, List, Optional, Tuple
 from .gemini_service import identify_seed as gemini_identify_seed
-from .image_validator import validate_and_preprocess_image
+from .image_validator import validate_and_preprocess_image, validate_botanical_image
+from .uses_and_benefits import get_seed_uses_and_benefits
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 dotenv_path = os.path.join(BASE_DIR, ".env")
@@ -185,7 +186,7 @@ def _sanitize_celsius_only(text: str) -> str:
 BOTANICAL_SEED_GUIDES = {
     "mangifera indica": {
         "common_name": "Mango",
-        "morphology": "The mango seed is enclosed in a large, flattened, fibrous woody husk, typically 6 to 9 cm long. It has a pale straw to light brown outer coat with coarse longitudinal fibers.",
+        "morphology": "The mango seed is enclosed in a large, flat, woody husk with coarse fibers running lengthwise. It has a pale brown outer shell.",
         "germination": {
             "preparation": "Carefully pry open the fibrous outer husk using clean scissors or a blunt knife without nicking the inner seed. Soak the inner seed in room-temperature water for 24 hours before planting.",
             "germination_time": "2 to 4 weeks (approximate).",
@@ -201,7 +202,7 @@ BOTANICAL_SEED_GUIDES = {
     },
     "psidium guajava": {
         "common_name": "Guava",
-        "morphology": "Small (3 to 5 mm), hard, kidney-shaped to angular seeds. Pale yellowish-tan or cream in color with a smooth, extremely hard and bony seed coat.",
+        "morphology": "Small (3 to 5 mm), hard, kidney-shaped seeds. Pale cream in color with a smooth, firm outer shell.",
         "germination": {
             "preparation": "Rinse off any fruit pulp completely. Soaking seeds in warm water for 24 to 48 hours is recommended to soften the hard outer coat.",
             "germination_time": "2 to 6 weeks (approximate).",
@@ -217,7 +218,7 @@ BOTANICAL_SEED_GUIDES = {
     },
     "helianthus annuus": {
         "common_name": "Sunflower",
-        "morphology": "Teardrop-shaped or oval seed (achene), 10 to 15 mm long. Dark gray, solid black, or black with distinct white vertical stripes and a rigid shell.",
+        "morphology": "Teardrop-shaped or oval seed, 10 to 15 mm long. Dark gray or black, often with distinct white stripes and a firm shell.",
         "germination": {
             "preparation": "Plant directly with the shell intact. Soaking in water for 6 to 12 hours is optional to speed up germination.",
             "germination_time": "7 to 10 days (approximate).",
@@ -233,7 +234,7 @@ BOTANICAL_SEED_GUIDES = {
     },
     "carica papaya": {
         "common_name": "Papaya",
-        "morphology": "Small (4 to 6 mm), round to oval, dark brown to black seeds. Enclosed in a translucent gelatinous sac (sarcotesta) with a rough, wrinkled surface texture once dried.",
+        "morphology": "Small (4 to 6 mm), round to oval dark brown seeds. Covered in a clear jelly layer with a rough, wrinkled surface when dried.",
         "germination": {
             "preparation": "Gently rub off the gelatinous outer layer (sarcotesta) using a paper towel and rinse well. Soaking in lukewarm water for 24 hours helps soften the seed coat.",
             "germination_time": "2 to 3 weeks (approximate).",
@@ -249,7 +250,7 @@ BOTANICAL_SEED_GUIDES = {
     },
     "solanum lycopersicum": {
         "common_name": "Tomato",
-        "morphology": "Small (2 to 4 mm), flat, kidney-shaped to teardrop seeds. Pale tan to light beige, covered in fine microscopic hairs.",
+        "morphology": "Small (2 to 4 mm), flat, teardrop-shaped seeds. Pale tan to light beige, covered in tiny soft hairs.",
         "germination": {
             "preparation": "No soaking is required for dry seeds. If extracted fresh from fruit, rinse away the gelatinous pulp and dry before sowing.",
             "germination_time": "5 to 10 days (approximate).",
@@ -265,7 +266,7 @@ BOTANICAL_SEED_GUIDES = {
     },
     "citrullus lanatus": {
         "common_name": "Watermelon",
-        "morphology": "Flat, oval-shaped seeds with a slightly thickened rim, 8 to 12 mm long. Dark brown, black, or mottled cream with a smooth coat.",
+        "morphology": "Flat, oval seeds with a slightly thickened rim, 8 to 12 mm long. Dark brown or black with a smooth shell.",
         "germination": {
             "preparation": "Plant seeds directly with the coat intact. Soaking in warm water for 2 to 4 hours is optional to speed up germination.",
             "germination_time": "5 to 10 days (approximate).",
@@ -281,7 +282,7 @@ BOTANICAL_SEED_GUIDES = {
     },
     "malus domestica": {
         "common_name": "Apple",
-        "morphology": "Teardrop-shaped, 6 to 8 mm long. Dark reddish-brown to chestnut brown with a smooth, hard seed coat and a distinct pointed tip.",
+        "morphology": "Teardrop-shaped, 6 to 8 mm long. Dark brown with a smooth, hard shell and a pointed tip.",
         "germination": {
             "preparation": "Requires cold stratification in a moist paper towel inside the refrigerator at 4°C for 60 to 90 days. Soaking is not required prior to stratification.",
             "germination_time": "2 to 4 weeks after cold stratification.",
@@ -329,7 +330,7 @@ BOTANICAL_SEED_GUIDES = {
     },
     "pisum sativum": {
         "common_name": "Pea",
-        "morphology": "Spherical or slightly dimpled round seeds, 6 to 9 mm in diameter. Pale green, yellow, or cream with a distinct oval hilum scar.",
+        "morphology": "Round or slightly dimpled seeds, 6 to 9 mm wide. Pale green or yellow with a small visible eye mark.",
         "germination": {
             "preparation": "Soaking in lukewarm water for 12 hours is optional to accelerate germination. Plant directly into cool, fertile soil.",
             "germination_time": "6 to 10 days (approximate).",
@@ -345,9 +346,9 @@ BOTANICAL_SEED_GUIDES = {
     },
     "phaseolus vulgaris": {
         "common_name": "Common Bean",
-        "morphology": "Kidney-shaped or oblong seed, 10 to 15 mm long. Can be white, red, black, or mottled with a distinct white hilum scar.",
+        "morphology": "Kidney-shaped or oblong seed, 10 to 15 mm long. Can be white, red, or black with a distinct white eye mark.",
         "germination": {
-            "preparation": "Plant directly into moist soil with the hilum facing downward. Soaking is optional and should not exceed 2 to 4 hours to avoid damaging the seed embryo.",
+            "preparation": "Plant directly into moist soil with the eye facing downward. Soaking is optional and should not exceed 2 to 4 hours.",
             "germination_time": "7 to 10 days (approximate).",
             "conditions": "Warm soil between 20°C and 28°C with good drainage."
         },
@@ -361,7 +362,7 @@ BOTANICAL_SEED_GUIDES = {
     },
     "citrus limon": {
         "common_name": "Lemon",
-        "morphology": "Teardrop to oval-shaped seeds, 7 to 10 mm long. Pale ivory to cream color with a pointed micropylar beak.",
+        "morphology": "Teardrop to oval seeds, 7 to 10 mm long. Pale cream color with a pointed tip.",
         "germination": {
             "preparation": "Rinse away fruit pulp thoroughly. Peeling the papery outer white membrane is optional to speed up germination.",
             "germination_time": "2 to 3 weeks (approximate).",
@@ -377,9 +378,9 @@ BOTANICAL_SEED_GUIDES = {
     },
     "piper nigrum": {
         "common_name": "Black Pepper",
-        "morphology": "Small (4 to 6 mm), spherical, drupaceous seed/fruit (peppercorn). Dark brown to wrinkled black outer coat with a rough surface texture.",
+        "morphology": "Small (4 to 6 mm), round dried berry (peppercorn). Dark brown to wrinkled black with a rough surface.",
         "germination": {
-            "preparation": "Soak fresh seeds in warm water for 24 hours to soften the dried outer pericarp before planting.",
+            "preparation": "Soak fresh seeds in warm water for 24 hours to soften the dried outer skin before planting.",
             "germination_time": "3 to 6 weeks (approximate).",
             "conditions": "Warm tropical conditions between 25°C and 32°C with high humidity."
         },
@@ -756,6 +757,17 @@ def botanical_visual_classify_seed(image_bytes: bytes, filename: str = "") -> Op
     # Unrecognized / non-seed
     return None
 
+def _attach_seed_uses_and_benefits(res_dict: Dict[str, Any], scientific_name: str, common_name: str) -> Dict[str, Any]:
+    """Helper to attach verified seed uses & benefits without adding any confidence fields."""
+    try:
+        uses = get_seed_uses_and_benefits(scientific_name, common_name)
+        res_dict["uses_and_benefits"] = uses
+        if "data" in res_dict and isinstance(res_dict["data"], dict):
+            res_dict["data"]["uses_and_benefits"] = uses
+    except Exception as e:
+        print("Note: Seed uses & benefits attachment error:", e)
+    return res_dict
+
 def identify_seed(
     image_bytes: bytes,
     filename: str = "seed.jpg",
@@ -763,22 +775,23 @@ def identify_seed(
 ) -> Dict[str, Any]:
     """
     Seed Identification via Kindwise Plant.id + Google Gemini Vision:
-    1. Validates uploaded image format & size.
+    1. Validates uploaded image format, size, authenticity, and subject (seed vs non-seed/AI/art).
     2. Saves archival copy in backend/uploads/.
     3. Normalizes EXIF orientation and RGB channels.
     4. Submits image to Kindwise Plant.id API v3.
     5. Leverages Google Gemini AI for seed-only morphology & quota failover.
     6. Strictly avoids showing plant-care info (adhering strictly to seed-only rule).
+    7. Attaches verified uses and benefits (without confidence score).
     """
-    # 1. Validation & Preprocessing
-    is_valid, processed_jpeg_bytes, val_error, quality_warning = validate_and_preprocess_image(
-        image_bytes, filename, content_type, max_size=MAX_UPLOAD_SIZE
+    # 1. Validation & Preprocessing (Physical + Semantic & Fake/Invalid Detection)
+    is_valid, processed_jpeg_bytes, val_error, val_meta = validate_botanical_image(
+        image_bytes, filename, content_type, expected_subject="seed", max_size=MAX_UPLOAD_SIZE
     )
     if not is_valid:
         return {
             "success": False,
             "status": "validation_error",
-            "message": val_error or "Please upload a clear image of the seed.",
+            "message": val_error or "This image does not appear to contain a seed. Please upload a clear seed photograph.",
             "data": None
         }
 
@@ -842,9 +855,10 @@ def identify_seed(
     # Check if Gemini flagged image as uncertain and Kindwise also failed
     if gemini_data and gemini_data.get("is_uncertain") and not kw_success:
         unc_note = gemini_data.get("uncertainty_note") or "The seed image is too small, blurry, or visually ambiguous for a reliable conclusion."
+        is_wrong_subject = any(w in unc_note.lower() for w in ["not a seed", "whole plant", "leaf", "potted plant", "unrelated"])
         return {
             "success": False,
-            "status": "uncertain",
+            "status": "validation_error" if is_wrong_subject else "uncertain",
             "message": unc_note,
             "data": {
                 "seed_name": "Uncertain",
@@ -898,7 +912,7 @@ def identify_seed(
             "candidates": candidates
         }
 
-        return {
+        return _attach_seed_uses_and_benefits({
             "success": True,
             "status": "identified",
             "message": f"Seed identified successfully as {common_name} ({scientific_name})",
@@ -912,7 +926,7 @@ def identify_seed(
             "confidence_percent": confidence_percent,
             "candidates": candidates,
             "data": result_data
-        }
+        }, scientific_name, common_name)
 
     # Case A: Kindwise succeeded with good confidence (>= 0.35)
     if kw_success and kw_top:
@@ -937,7 +951,7 @@ def identify_seed(
             "candidates": kw_candidates
         }
 
-        return {
+        return _attach_seed_uses_and_benefits({
             "success": True,
             "status": "identified",
             "message": f"Seed identified successfully as {common_name} ({scientific_name})",
@@ -951,7 +965,7 @@ def identify_seed(
             "confidence_percent": confidence_percent,
             "candidates": kw_candidates,
             "data": result_data
-        }
+        }, scientific_name, common_name)
 
     # Case B: Gemini Vision fallback (Kindwise quota exceeded / failed)
     if gemini_data and gemini_data.get("common_name"):
@@ -978,7 +992,7 @@ def identify_seed(
             "candidates": candidates
         }
 
-        return {
+        return _attach_seed_uses_and_benefits({
             "success": True,
             "status": "identified",
             "message": f"Seed identified successfully as {common_name} ({scientific_name}) via AI Vision",
@@ -992,7 +1006,7 @@ def identify_seed(
             "confidence_percent": 85.0,
             "candidates": candidates,
             "data": result_data
-        }
+        }, scientific_name, common_name)
 
     # Case B.5: Check local trained PyTorch model if available
     local_pred = predict_with_local_seed_model(processed_jpeg_bytes)
@@ -1019,7 +1033,7 @@ def identify_seed(
             "confidence_percent": conf_pct,
             "candidates": candidates
         }
-        return {
+        return _attach_seed_uses_and_benefits({
             "success": True,
             "status": "identified",
             "message": f"Seed identified successfully as {common_name} ({class_name})",
@@ -1034,7 +1048,7 @@ def identify_seed(
             "confidence_percent": conf_pct,
             "candidates": candidates,
             "data": result_data
-        }
+        }, class_name, common_name)
 
     # Case C: Both Kindwise and Gemini unavailable or failed (e.g. on serverless Vercel)
     # Use lightweight botanical visual feature classifier
@@ -1068,7 +1082,7 @@ def identify_seed(
             "candidates": candidates
         }
 
-        return {
+        return _attach_seed_uses_and_benefits({
             "success": True,
             "status": "identified",
             "message": f"Seed identified successfully as {common_name} ({scientific_name})",
@@ -1082,7 +1096,7 @@ def identify_seed(
             "confidence_percent": confidence_percent,
             "candidates": candidates,
             "data": result_data
-        }
+        }, scientific_name, common_name)
 
     # Case D: Unidentified / Ambiguous / Non-seed image
     return {
